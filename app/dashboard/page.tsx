@@ -11,6 +11,7 @@ interface Click {
   offer_id: string
   clicked_at: string
   redeemed: boolean
+  confirmed?: boolean
 }
 
 export default function DashboardPage() {
@@ -44,11 +45,13 @@ export default function DashboardPage() {
 
       if (clickData) {
         setClicks(clickData)
+
         const unconfirmedRewards = clickData
           .filter((c) => !c.redeemed)
           .map((c) => offers.find((o) => o.id === c.offer_id)?.reward || 0)
+
         const confirmedRewards = clickData
-          .filter((c) => c.redeemed)
+          .filter((c) => c.confirmed && !c.redeemed)
           .map((c) => offers.find((o) => o.id === c.offer_id)?.reward || 0)
 
         setTotalReward(unconfirmedRewards.reduce((sum, val) => sum + val, 0))
@@ -64,21 +67,24 @@ export default function DashboardPage() {
   }, [])
 
   const handleGiftcardTest = async () => {
-    const res = await fetch('/api/redeem-gift-card', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'lohmannmax2003@gmail.com',
-    value: 5,
-    utid: 'U591998' // Amazon.de 5€ – gültig
-  })
-})
+    try {
+      const res = await fetch('/api/redeem-gift-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'lohmannmax2003@gmail.com',
+          value: 5,
+          utid: 'U591998' // Amazon.de 5€ – gültig
+        })
+      })
 
-
-    const result = await res.json()
-    alert(result.success
-      ? `🎉 Gutschein erfolgreich bestellt!\nCode: ${result.code}`
-      : `❌ Fehler: ${JSON.stringify(result.error)}`)
+      const result = await res.json()
+      alert(result.success
+        ? `🎉 Gutschein erfolgreich bestellt!\nCode: ${result.code}`
+        : `❌ Fehler: ${JSON.stringify(result.error)}`)
+    } catch (err: any) {
+      alert(`❌ API-Fehler beim Einlösen:\n${err.message}`)
+    }
   }
 
   return (

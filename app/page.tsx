@@ -6,6 +6,7 @@ import { offers } from '@/utils/offers'
 import Link from 'next/link'
 import Header from './components/header'
 import Footer from './components/footer'
+import Image from 'next/image'
 
 export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -42,6 +43,22 @@ export default function Home() {
   return (
     <>
       <Header />
+
+      {/* Beige Fläche unter dem Header */}
+      <div className="bg-[#fdf7ee] h-48 relative flex items-center">
+        <div className="max-w-7xl mx-auto w-full px-6 md:px-10 flex justify-end">
+          <div className="relative w-40 h-40">
+            <Image
+  src="/mouse-v2.png"
+  alt="Maus"
+  fill
+  className="object-contain"
+  priority
+/>
+
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white text-gray-800 min-h-screen">
         <div className="space-y-10 p-6 md:p-10 max-w-7xl mx-auto">

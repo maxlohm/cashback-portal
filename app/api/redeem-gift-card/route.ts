@@ -2,9 +2,15 @@
 
 import { Buffer } from 'buffer'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+)
 
 export async function POST(req: NextRequest) {
-  const { email, value, utid } = await req.json()
+  const { email, value, utid, user_id } = await req.json()
 
   const body = {
     accountIdentifier: process.env.TANGO_ACCOUNT_IDENTIFIER || '',
@@ -35,6 +41,19 @@ export async function POST(req: NextRequest) {
   const code = tangoData?.reward?.redemptionInstructions || 'NO_CODE_RECEIVED'
 
   if (tangoRes.ok) {
+    // ➕ In Supabase speichern
+    if (user_id) {
+      await supabase.from('gift_cards').insert([
+        {
+          user_id,
+          code,
+          type: utid === 'U591998' ? 'Amazon' : 'Unbekannt',
+          value,
+          issued_at: new Date().toISOString(),
+        },
+      ])
+    }
+
     return NextResponse.json({ success: true, code, tangoData })
   } else {
     return NextResponse.json({ success: false, error: tangoData }, { status: 400 })

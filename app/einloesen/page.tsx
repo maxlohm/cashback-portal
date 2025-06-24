@@ -19,12 +19,14 @@ export default function EinloesenPage() {
         window.location.href = '/login'
         return
       }
+      const userId = userData.user.id
 
       const { data: clicks } = await supabase
         .from('clicks')
         .select('*')
-        .eq('user_id', userData.user.id)
+        .eq('user_id', userId)
         .eq('redeemed', false)
+        .eq('confirmed', true)
 
       if (clicks) {
         const rewards = clicks.map((c) => {
@@ -41,7 +43,6 @@ export default function EinloesenPage() {
 
   const handleRedeem = async () => {
     const numericAmount = parseFloat(amount)
-
     if (isNaN(numericAmount) || numericAmount <= 0) {
       setError('Bitte gib einen gültigen Betrag ein.')
       return
@@ -56,43 +57,65 @@ export default function EinloesenPage() {
 
     const { data: userData } = await supabase.auth.getUser()
     if (!userData?.user) {
-      window.location.href = '/login'
+      setError('Du musst eingeloggt sein.')
       return
     }
 
-    const { data: clicks, error: fetchError } = await supabase
-      .from('clicks')
-      .select('*')
-      .eq('user_id', userData.user.id)
-      .eq('redeemed', false)
+    if (selectedOption === 'amazon') {
+      const res = await fetch('/api/redeem-gift-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          utid: 'U591998',
+          value: numericAmount,
+          user_id: userData.user.id,
+          email: userData.user.email,
+        }),
+      })
 
-    if (fetchError || !clicks) {
-      setError('Ein Fehler ist beim Laden deiner Daten aufgetreten.')
-      return
-    }
-
-    let sum = 0
-    const toRedeem = []
-
-    for (const click of clicks) {
-      const offer = offers.find((o) => o.id === click.offer_id)
-      if (offer && sum + offer.reward <= numericAmount) {
-        sum += offer.reward
-        toRedeem.push(click.id)
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setError(data.error?.message || 'Einlösungsfehler.')
+        return
       }
-    }
 
-    const { error: updateError } = await supabase
-      .from('clicks')
-      .update({ redeemed: true })
-      .in('id', toRedeem)
-
-    if (updateError) {
-      setError('Ein Fehler ist beim Einlösen aufgetreten.')
-    } else {
       setSuccess(true)
       setAmount('')
-      setMaxAmount(maxAmount - sum)
+      setMaxAmount(maxAmount - numericAmount)
+
+    } else if (selectedOption === 'paypal') {
+      const userId = userData.user.id
+
+      const { data: clicks } = await supabase
+        .from('clicks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('redeemed', false)
+        .eq('confirmed', true)
+
+      let sum = 0
+      const toRedeem = []
+
+      for (const click of clicks || []) {
+        const offer = offers.find((o) => o.id === click.offer_id)
+        if (offer && sum + offer.reward <= numericAmount) {
+          sum += offer.reward
+          toRedeem.push(click.id)
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('clicks')
+        .update({ redeemed: true })
+        .in('id', toRedeem)
+
+      if (updateError) {
+        setError('Fehler bei der PayPal-Auszahlung.')
+      } else {
+        setSuccess(true)
+        setAmount('')
+        setMaxAmount(maxAmount - sum)
+      }
     }
   }
 
@@ -101,7 +124,9 @@ export default function EinloesenPage() {
       <Header />
       <div className="max-w-3xl mx-auto p-6 md:p-10 space-y-8">
         <h1 className="text-3xl font-bold">🎁 Prämie einlösen</h1>
-        <p className="text-[#003b5b]">Du hast aktuell {maxAmount.toFixed(2)} € vorgemerktes Guthaben.</p>
+        <p className="text-[#003b5b]">
+          Du hast aktuell {maxAmount.toFixed(2)} € bestätigtes Guthaben.
+        </p>
 
         <div className="bg-[#d0f0f7] rounded-xl p-6 shadow space-y-6">
           <h2 className="text-xl font-semibold text-[#003b5b]">1️⃣ Partner auswählen</h2>
