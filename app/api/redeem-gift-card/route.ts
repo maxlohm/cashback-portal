@@ -1,6 +1,6 @@
 // 📁 app/api/redeem-gift-card/route.ts
 
-import { Buffer } from 'buffer'
+import { Buffer } from 'buffer' // Trigger redeploy
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
