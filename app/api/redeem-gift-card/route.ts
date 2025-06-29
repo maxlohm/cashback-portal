@@ -4,9 +4,10 @@ import { Buffer } from 'buffer'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Supabase Client mit sicheren Variablen (nur anon key!)
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  process.env.SUPABASE_ANON_KEY || ''
 )
 
 export async function POST(req: NextRequest) {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   const code = tangoData?.reward?.redemptionInstructions || 'NO_CODE_RECEIVED'
 
   if (tangoRes.ok) {
-    // ➕ In Supabase speichern
+    // 🎯 Gutschein in Supabase speichern
     if (user_id) {
       await supabase.from('gift_cards').insert([
         {
