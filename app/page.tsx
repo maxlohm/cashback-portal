@@ -44,42 +44,41 @@ export default function Home() {
     <>
       <Header />
 
-      {/* Beige Fläche unter dem Header */}
-      <div className="bg-[#fdf7ee] h-48 relative flex items-center">
-        <div className="max-w-7xl mx-auto w-full px-6 md:px-10 flex justify-end">
-          <div className="relative w-40 h-40">
-            <Image
-  src="/mouse-v2.png"
-  alt="Maus"
-  fill
-  className="object-contain"
-  priority
-/>
-
-          </div>
-        </div>
+      {/* Bannerbereich */}
+      <div className="w-full bg-[#fdf7ee]">
+        <Image
+          src="/Banner.png"
+          alt="Banner"
+          width={1920}
+          height={500}
+          className="w-full h-auto object-cover"
+          priority
+        />
       </div>
 
-      <div className="bg-white text-gray-800 min-h-screen">
-        <div className="space-y-10 p-6 md:p-10 max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold">📢 Aktuelle Angebote:</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* Hauptinhalt */}
+      <div className="bg-white text-gray-800">
+        <div className="max-w-7xl mx-auto p-6 sm:p-8 md:p-10 space-y-10">
+          <h2 className="text-3xl font-bold text-[#003b5b]">📢 Aktuelle Angebote</h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {offers.map((offer) => (
               <div
                 key={offer.id}
-                className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
+                className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
               >
-                <div className="h-40 bg-gray-100 rounded mb-4 flex items-center justify-center">
-                  <span className="text-gray-400">Bild hier</span>
+                <div className="h-40 bg-gray-100 rounded mb-4 flex items-center justify-center text-gray-400">
+                  {/* Platzhalter für Bild */}
+                  Bild hier
                 </div>
-                <h3 className="text-xl font-bold">{offer.name}</h3>
-                <p className="text-gray-600 mb-2">{offer.description}</p>
+                <h3 className="text-xl font-bold text-[#003b5b] mb-1">{offer.name}</h3>
+                <p className="text-gray-600 text-sm mb-2">{offer.description}</p>
                 <p className="text-green-600 font-semibold mb-4">
                   {offer.reward} € Prämie
                 </p>
                 <button
                   onClick={() => handleClick(offer.id, offer.link)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
+                  className="w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 px-4 rounded-lg font-medium transition"
                 >
                   Jetzt teilnehmen
                 </button>

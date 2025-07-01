@@ -82,7 +82,6 @@ export default function EinloesenPage() {
       setSuccess(true)
       setAmount('')
       setMaxAmount(maxAmount - numericAmount)
-
     } else if (selectedOption === 'paypal') {
       const userId = userData.user.id
 
@@ -122,22 +121,22 @@ export default function EinloesenPage() {
   return (
     <>
       <Header />
-      <div className="max-w-3xl mx-auto p-6 md:p-10 space-y-8">
-        <h1 className="text-3xl font-bold">🎁 Prämie einlösen</h1>
-        <p className="text-[#003b5b]">
-          Du hast aktuell {maxAmount.toFixed(2)} € bestätigtes Guthaben.
+      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6 text-[#003b5b]">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left">🎁 Prämie einlösen</h1>
+        <p className="text-sm sm:text-base text-center sm:text-left">
+          Du hast aktuell <strong>{maxAmount.toFixed(2)} €</strong> bestätigtes Guthaben.
         </p>
 
         <div className="bg-[#d0f0f7] rounded-xl p-6 shadow space-y-6">
-          <h2 className="text-xl font-semibold text-[#003b5b]">1️⃣ Partner auswählen</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h2 className="text-lg sm:text-xl font-semibold">1️⃣ Partner auswählen</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div
               onClick={() => setSelectedOption('amazon')}
               className={`p-4 rounded-lg cursor-pointer border transition ${
                 selectedOption === 'amazon' ? 'border-green-600 bg-white' : 'border-blue-200 bg-white'
               }`}
             >
-              <h3 className="font-bold text-[#003b5b]">🎯 Amazon-Gutschein</h3>
+              <h3 className="font-bold">🎯 Amazon-Gutschein</h3>
               <p className="text-sm text-gray-600">Einlösbar ab 5 €</p>
             </div>
             <div
@@ -146,14 +145,14 @@ export default function EinloesenPage() {
                 selectedOption === 'paypal' ? 'border-green-600 bg-white' : 'border-blue-200 bg-white'
               }`}
             >
-              <h3 className="font-bold text-[#003b5b]">🏦 PayPal-Auszahlung</h3>
+              <h3 className="font-bold">🏦 PayPal-Auszahlung</h3>
               <p className="text-sm text-gray-600">Einlösbar ab 10 €</p>
             </div>
           </div>
 
           {selectedOption && (
             <>
-              <h2 className="text-xl font-semibold text-[#003b5b] mt-6">2️⃣ Betrag wählen</h2>
+              <h2 className="text-lg sm:text-xl font-semibold mt-4">2️⃣ Betrag wählen</h2>
               <input
                 type="number"
                 placeholder="z. B. 5"
@@ -163,15 +162,17 @@ export default function EinloesenPage() {
                 onChange={(e) => setAmount(e.target.value)}
                 className="w-full p-2 rounded border border-blue-300 bg-white text-black"
               />
-              {error && <p className="text-red-500">{error}</p>}
+
+              {error && <p className="text-red-600 text-sm">{error}</p>}
               {success && (
-                <p className="text-green-600 font-semibold mt-2">
+                <p className="text-green-600 font-semibold text-sm mt-2">
                   ✅ Deine Anfrage wurde gespeichert. Die Prämienausgabe erfolgt bald.
                 </p>
               )}
+
               <button
                 onClick={handleRedeem}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded"
+                className="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded w-full sm:w-auto"
               >
                 Prämie einlösen
               </button>

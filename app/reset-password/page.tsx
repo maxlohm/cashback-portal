@@ -14,12 +14,17 @@ export default function ResetPasswordPage() {
     setError('')
     setSuccess('')
 
+    if (!newPassword || newPassword.length < 6) {
+      setError('Das neue Passwort muss mindestens 6 Zeichen lang sein.')
+      return
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPassword })
 
     if (error) {
       setError('Fehler beim Zurücksetzen des Passworts.')
     } else {
-      setSuccess('Passwort wurde erfolgreich geändert.')
+      setSuccess('✅ Passwort wurde erfolgreich geändert.')
       setNewPassword('')
     }
   }
@@ -29,7 +34,7 @@ export default function ResetPasswordPage() {
       <Header />
       <main className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
         <div className="max-w-md mx-auto bg-[#d0f0f7] border border-blue-200 p-8 rounded-xl shadow space-y-6">
-          <h1 className="text-2xl font-bold text-center">Passwort zurücksetzen</h1>
+          <h1 className="text-2xl font-bold text-center">🔐 Passwort zurücksetzen</h1>
 
           <div>
             <label className="block text-sm font-medium">Neues Passwort</label>
@@ -37,12 +42,13 @@ export default function ResetPasswordPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Mind. 6 Zeichen"
               className="w-full mt-1 p-2 border border-blue-300 rounded bg-white"
             />
           </div>
 
-          {success && <p className="text-green-600 text-center">{success}</p>}
           {error && <p className="text-red-600 text-center">{error}</p>}
+          {success && <p className="text-green-600 text-center">{success}</p>}
 
           <button
             onClick={handleReset}

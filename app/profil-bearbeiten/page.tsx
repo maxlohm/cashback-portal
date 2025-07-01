@@ -63,18 +63,18 @@ export default function ProfilBearbeitenPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-[#f0fbff] text-[#003b5b] px-4 py-10">
-        <div className="max-w-2xl mx-auto bg-white border border-blue-200 p-8 rounded-2xl shadow space-y-6">
-          <h1 className="text-3xl font-bold text-center text-[#003b5b]">👤 Mein Profil</h1>
+      <div className="min-h-screen bg-[#f0fbff] text-[#003b5b] px-4 sm:px-6 lg:px-8 py-10">
+        <div className="max-w-2xl mx-auto bg-white border border-blue-200 p-6 sm:p-8 rounded-2xl shadow space-y-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-center">👤 Mein Profil</h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium">Vorname</label>
               <input
                 type="text"
                 value={vorname}
                 disabled
-                className="w-full mt-1 p-2 border border-blue-300 rounded bg-gray-100 text-gray-600"
+                className="w-full mt-1 p-2 border border-blue-300 rounded bg-gray-100 text-gray-600 text-sm"
               />
             </div>
 
@@ -84,7 +84,7 @@ export default function ProfilBearbeitenPage() {
                 type="text"
                 value={nachname}
                 disabled
-                className="w-full mt-1 p-2 border border-blue-300 rounded bg-gray-100 text-gray-600"
+                className="w-full mt-1 p-2 border border-blue-300 rounded bg-gray-100 text-gray-600 text-sm"
               />
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function ProfilBearbeitenPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white"
+              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white text-sm"
             />
           </div>
 
@@ -105,7 +105,7 @@ export default function ProfilBearbeitenPage() {
               type="password"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white"
+              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white text-sm"
             />
           </div>
 
@@ -115,16 +115,16 @@ export default function ProfilBearbeitenPage() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white"
+              className="w-full mt-1 p-2 border border-blue-300 rounded bg-white text-sm"
             />
           </div>
 
-          {success && <p className="text-green-600 text-center">{success}</p>}
-          {error && <p className="text-red-600 text-center">{error}</p>}
+          {success && <p className="text-green-600 text-center text-sm">{success}</p>}
+          {error && <p className="text-red-600 text-center text-sm">{error}</p>}
 
           <button
             onClick={handleSave}
-            className="w-full bg-[#003b5b] hover:bg-[#002a40] text-white py-2 rounded-xl font-medium"
+            className="w-full bg-[#003b5b] hover:bg-[#002a40] text-white py-2 rounded-xl font-medium text-sm"
           >
             Änderungen speichern
           </button>

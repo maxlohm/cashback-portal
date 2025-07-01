@@ -19,15 +19,19 @@ export default function SupportPage() {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target
-    const name = target.name as keyof typeof formData
-    const value = target.type === 'checkbox' ? (target as HTMLInputElement).checked : target.value
+    const name = target.name
+    const value = target.value
+    const type = target.type
+    const checked = (target as HTMLInputElement).checked
 
-    setFormData({
-      ...formData,
-      [name]: value,
-    })
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
 
-    if (name === 'consent') setErrors({ ...errors, consent: '' })
+    if (name === 'consent') {
+      setErrors((prev) => ({ ...prev, consent: '' }))
+    }
   }
 
   const handleSubmit = (e: FormEvent) => {
@@ -40,20 +44,31 @@ export default function SupportPage() {
 
     console.log('Support-Anfrage gesendet:', formData)
     alert('Vielen Dank! Deine Supportanfrage wurde gesendet.')
+
+    // Optional: Reset
+    setFormData({
+      requestType: 'Sonstiges',
+      email: '',
+      firstName: '',
+      lastName: '',
+      subject: '',
+      message: '',
+      consent: false,
+    })
   }
 
   return (
     <>
       <Header />
-      <main className="max-w-2xl mx-auto p-6 text-gray-800">
-        <h1 className="text-2xl font-bold text-center mb-8">Neue Supportanfrage</h1>
+      <main className="max-w-2xl mx-auto px-4 py-10 text-[#003b5b]">
+        <h1 className="text-2xl font-bold text-center mb-8">📬 Neue Supportanfrage</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-[#d0f0f7] p-6 rounded-xl shadow border border-blue-200">
           <select
             name="requestType"
             value={formData.requestType}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded px-4 py-2"
+            className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
           >
             <option>Sonstiges</option>
             <option>Technisches Problem</option>
@@ -65,64 +80,64 @@ export default function SupportPage() {
           <input
             type="email"
             name="email"
-            placeholder="E-Mail"
+            placeholder="E-Mail *"
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full border border-gray-300 rounded px-4 py-2"
+            className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
           />
 
           <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
             <input
               type="text"
               name="firstName"
-              placeholder="Vorname"
+              placeholder="Vorname *"
               value={formData.firstName}
               onChange={handleChange}
               required
-              className="w-full border border-gray-300 rounded px-4 py-2"
+              className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
             />
             <input
               type="text"
               name="lastName"
-              placeholder="Nachname"
+              placeholder="Nachname *"
               value={formData.lastName}
               onChange={handleChange}
               required
-              className="w-full border border-gray-300 rounded px-4 py-2"
+              className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
             />
           </div>
 
           <input
             type="text"
             name="subject"
-            placeholder="Betreff"
+            placeholder="Betreff *"
             value={formData.subject}
             onChange={handleChange}
             required
-            className="w-full border border-gray-300 rounded px-4 py-2"
+            className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
           />
 
           <textarea
             name="message"
-            placeholder="Nachricht"
+            placeholder="Nachricht *"
             value={formData.message}
             onChange={handleChange}
             required
-            className="w-full border border-gray-300 rounded px-4 py-2 h-32"
+            className="w-full border border-blue-300 rounded px-4 py-2 bg-white h-32"
           />
 
-          <div className="space-y-2">
-            <label className="flex items-start space-x-2 text-sm">
+          <div className="space-y-2 text-sm">
+            <label className="flex items-start space-x-2">
               <input
                 type="checkbox"
                 name="consent"
                 checked={formData.consent}
                 onChange={handleChange}
-                className="mt-1"
+                className="mt-1 accent-[#003b5b]"
               />
               <span>
-                Ich habe die{' '}
+                Ich akzeptiere die{' '}
                 <a
                   href="/datenschutz"
                   className="underline text-blue-600"
@@ -131,17 +146,16 @@ export default function SupportPage() {
                 >
                   Datenschutzerklärung
                 </a>{' '}
-                zur Kenntnis genommen und stimme zu, dass meine Angaben zur Beantwortung meiner Anfrage elektronisch
-                verarbeitet werden dürfen.
+                und stimme der elektronischen Verarbeitung meiner Angaben zur Bearbeitung der Anfrage zu.
               </span>
             </label>
-            {errors.consent && <p className="text-sm text-red-600">{errors.consent}</p>}
+            {errors.consent && <p className="text-red-600">{errors.consent}</p>}
           </div>
 
           <button
             type="submit"
             disabled={!formData.consent}
-            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition ${
+            className={`w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 rounded-lg font-medium transition ${
               !formData.consent ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >

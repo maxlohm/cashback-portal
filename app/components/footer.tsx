@@ -4,12 +4,14 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="mt-20 bg-[#d0f0f7] text-[#003b5b] px-6 py-10 border-t border-cyan-300">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
+    <footer className="mt-20 bg-[#d0f0f7] text-[#003b5b] px-4 sm:px-6 py-10 border-t border-cyan-300">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div>
           <h4 className="font-semibold mb-2">Weitere beliebte Deals</h4>
-          <ul>
-            <li><Link href="/" className="hover:underline">Zur Startseite</Link></li>
+          <ul className="space-y-1">
+            <li>
+              <Link href="/" className="hover:underline">Zur Startseite</Link>
+            </li>
           </ul>
         </div>
 
@@ -35,13 +37,20 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
-          <p>HydroCash GbR<br />
-          Jan Biefang &amp; Max Lohmann<br />
-          <a href="mailto:hydroahsdjdsfgd@gmail.com" className="hover:underline text-[#0077b6]">hydroahsdjdsfgd@gmail.com</a></p>
+          <p className="space-y-1 text-sm">
+            HydroCash GbR<br />
+            Jan Biefang &amp; Max Lohmann<br />
+            <a
+              href="mailto:hydroahsdjdsfgd@gmail.com"
+              className="hover:underline text-[#0077b6] break-all"
+            >
+              hydroahsdjdsfgd@gmail.com
+            </a>
+          </p>
         </div>
       </div>
 
-      <div className="text-center text-xs text-[#003b5b] mt-10">
+      <div className="text-center text-xs text-[#003b5b] mt-10 px-2">
         &copy; {new Date().getFullYear()} HydroCash. Alle Rechte vorbehalten.
       </div>
     </footer>

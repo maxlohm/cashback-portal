@@ -90,16 +90,19 @@ export default function DashboardPage() {
   return (
     <>
       <Header />
+
       <div className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
         <div className="max-w-7xl mx-auto space-y-10">
-          <h1 className="text-3xl font-bold text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center">
             Willkommen im Dashboard, <span className="text-orange-500">{userName}</span>
           </h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm text-[#003b5b]">Bestätigtes Guthaben</p>
-              <p className="text-3xl font-bold text-green-600">{confirmedReward.toFixed(2)} €</p>
+              <p className="text-sm sm:text-base text-[#003b5b]">Bestätigtes Guthaben</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-600">
+                {confirmedReward.toFixed(2)} €
+              </p>
               <button
                 onClick={() => window.location.href = '/einloesen'}
                 className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded w-full"
@@ -109,8 +112,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm text-[#003b5b]">Vorgemerktes Guthaben</p>
-              <p className="text-3xl font-bold text-yellow-500">{totalReward.toFixed(2)} €</p>
+              <p className="text-sm sm:text-base text-[#003b5b]">Vorgemerktes Guthaben</p>
+              <p className="text-2xl sm:text-3xl font-bold text-yellow-500">
+                {totalReward.toFixed(2)} €
+              </p>
               <button
                 onClick={() => window.location.href = '/verlauf'}
                 className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded w-full"
@@ -120,8 +125,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm text-[#003b5b]">Prämienverlauf</p>
-              <p className="text-3xl font-bold text-blue-600">{clicks.length}</p>
+              <p className="text-sm sm:text-base text-[#003b5b]">Prämienverlauf</p>
+              <p className="text-2xl sm:text-3xl font-bold text-blue-600">
+                {clicks.length}
+              </p>
               <button
                 onClick={() => window.location.href = '/verlauf'}
                 className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
@@ -131,17 +138,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Test-Gutschein-Button */}
           <div className="text-center pt-10">
             <button
               onClick={handleGiftcardTest}
-              className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl shadow"
+              className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl shadow w-full max-w-xs mx-auto"
             >
               🎁 Test-Gutschein bestellen (5 € Amazon)
             </button>
           </div>
         </div>
       </div>
+
       <Footer />
     </>
   )
