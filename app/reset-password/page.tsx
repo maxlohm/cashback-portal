@@ -31,7 +31,6 @@ export default function ResetPasswordPage() {
 
   return (
     <>
-      <Header />
       <main className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
         <div className="max-w-md mx-auto bg-[#d0f0f7] border border-blue-200 p-8 rounded-xl shadow space-y-6">
           <h1 className="text-2xl font-bold text-center">🔐 Passwort zurücksetzen</h1>
@@ -58,7 +57,6 @@ export default function ResetPasswordPage() {
           </button>
         </div>
       </main>
-      <Footer />
     </>
   )
 }

@@ -119,8 +119,7 @@ export default function EinloesenPage() {
   }
 
   return (
-    <>
-      <Header />
+    <>   
       <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6 text-[#003b5b]">
         <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left">🎁 Prämie einlösen</h1>
         <p className="text-sm sm:text-base text-center sm:text-left">
@@ -179,8 +178,7 @@ export default function EinloesenPage() {
             </>
           )}
         </div>
-      </div>
-      <Footer />
+      </div>  
     </>
   )
 }

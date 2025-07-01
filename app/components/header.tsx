@@ -8,12 +8,16 @@ import Image from 'next/image'
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [loadingAuth, setLoadingAuth] = useState(true)
   const menuRef = useRef(null)
 
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser()
-      setLoggedIn(!!data?.user)
+      if (data?.user) {
+        setLoggedIn(true)
+      }
+      setLoadingAuth(false)
     }
 
     checkUser()
@@ -37,54 +41,66 @@ export default function Header() {
   }
 
   return (
-    <header className="relative bg-[#d0f0f7] border-b border-cyan-300 text-[#003b5b] z-50 overflow-hidden">
-      {/* 🐭 Mausgrafik – nur ab sm sichtbar */}
-      <div className="hidden sm:block absolute top-[-30px] right-6 z-10 w-[200px] sm:w-[250px] lg:w-[300px] h-auto">
+    <header className="relative bg-[#d0f0f7] border-b border-cyan-300 text-[#003b5b] z-50 overflow-visible">
+
+      {/* Mausgrafik */}
+      <div className="hidden sm:block absolute top-[-30px] right-6 z-10 w-[300px] h-auto">
         <Image
           src="/mouse-v2.png"
           alt="Mouse"
-          fill
+          width={300}
+          height={300}
           className="object-contain pointer-events-none select-none"
         />
       </div>
 
       {/* Menübutton oben rechts */}
       <div ref={menuRef} className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="px-3 py-2 sm:px-4 sm:py-2 bg-white border border-cyan-300 rounded-md shadow hover:bg-cyan-100 text-xl font-bold transition"
-          aria-label="Menü öffnen"
-        >
-          ☰
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="px-3 py-2 sm:px-4 sm:py-2 bg-white border border-cyan-300 rounded-md shadow hover:bg-cyan-100 text-xl font-bold transition"
+            aria-label="Menü öffnen"
+          >
+            ☰
+          </button>
 
-        {menuOpen && (
-          <div className="mt-2 w-44 bg-white border shadow-lg rounded-md z-50 text-right">
-            <Link href="/" className="block px-4 py-2 hover:bg-gray-100">Angebote</Link>
-            <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">Support</Link>
-            <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">FAQ</Link>
-            {loggedIn ? (
-              <>
-                <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</Link>
-                <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">Mein Profil</Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-4 py-2 text-red-600 hover:bg-gray-100 text-right"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">🔐 Login</Link>
-                <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">➕ Registrieren</Link>
-              </>
-            )}
-          </div>
-        )}
+          {/* Dropdown-Menü */}
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right">
+              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">🏠 Angebote</Link>
+
+              {!loadingAuth && loggedIn && (
+                <>
+                  <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">👤 Mein Profil</Link>
+                  <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">📊 Dashboard</Link>
+                </>
+              )}
+
+              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">🛟 Support</Link>
+              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">❓ FAQ</Link>
+
+              {!loadingAuth && (
+                loggedIn ? (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-right px-4 py-2 text-red-600 hover:bg-gray-100"
+                  >
+                    🔓 Logout
+                  </button>
+                ) : (
+                  <>
+                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">🔐 Login</Link>
+                    <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">➕ Registrieren</Link>
+                  </>
+                )
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Logo + Titel */}
+      {/* Logo & Titel */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center px-4 sm:px-6 pt-4 sm:pt-6 pb-8 sm:pb-10 min-h-[200px] sm:min-h-[280px] relative z-10">
         <Link href="/" className="flex items-center space-x-4 z-20">
           <Image

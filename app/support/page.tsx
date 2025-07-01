@@ -59,7 +59,6 @@ export default function SupportPage() {
 
   return (
     <>
-      <Header />
       <main className="max-w-2xl mx-auto px-4 py-10 text-[#003b5b]">
         <h1 className="text-2xl font-bold text-center mb-8">📬 Neue Supportanfrage</h1>
 
@@ -162,8 +161,7 @@ export default function SupportPage() {
             Anfrage absenden
           </button>
         </form>
-      </main>
-      <Footer />
+      </main> 
     </>
   )
 }

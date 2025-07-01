@@ -62,7 +62,6 @@ export default function ProfilBearbeitenPage() {
 
   return (
     <>
-      <Header />
       <div className="min-h-screen bg-[#f0fbff] text-[#003b5b] px-4 sm:px-6 lg:px-8 py-10">
         <div className="max-w-2xl mx-auto bg-white border border-blue-200 p-6 sm:p-8 rounded-2xl shadow space-y-6">
           <h1 className="text-xl sm:text-2xl font-bold text-center">👤 Mein Profil</h1>
@@ -130,7 +129,6 @@ export default function ProfilBearbeitenPage() {
           </button>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

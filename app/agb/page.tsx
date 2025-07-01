@@ -6,8 +6,6 @@ import Footer from '../components/footer'
 export default function AGBPage() {
   return (
     <>
-      <Header />
-
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 text-gray-800">
         <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left">
           Allgemeine Geschäftsbedingungen
@@ -93,9 +91,6 @@ export default function AGBPage() {
             </p>
           </section>
         </div>
-      </main>
-
-      <Footer />
-    </>
+      </main> </>
   )
 }

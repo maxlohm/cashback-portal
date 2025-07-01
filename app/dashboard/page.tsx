@@ -89,8 +89,6 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header />
-
       <div className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
         <div className="max-w-7xl mx-auto space-y-10">
           <h1 className="text-2xl sm:text-3xl font-bold text-center">
@@ -147,9 +145,6 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
-      </div>
-
-      <Footer />
-    </>
+      </div>   </>
   )
 }

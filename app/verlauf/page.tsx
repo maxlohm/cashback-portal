@@ -45,8 +45,7 @@ export default function VerlaufPage() {
   }
 
   return (
-    <>
-      <Header />
+    <>   
       <main className="max-w-4xl mx-auto p-6 md:p-10 text-gray-800">
         <h1 className="text-2xl font-bold mb-6">Eingelöste Prämien</h1>
 
@@ -90,8 +89,7 @@ export default function VerlaufPage() {
             </tbody>
           </table>
         </div>
-      </main>
-      <Footer />
+      </main> 
     </>
   )
 }

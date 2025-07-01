@@ -42,8 +42,6 @@ export default function Home() {
 
   return (
     <>
-      <Header />
-
       {/* Bannerbereich */}
       <div className="w-full bg-[#fdf7ee]">
         <Image
@@ -86,9 +84,7 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </div>
-
-      <Footer />
+      </div>  
     </>
   )
 }

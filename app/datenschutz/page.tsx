@@ -6,8 +6,6 @@ import Footer from '../components/footer'
 export default function DatenschutzPage() {
   return (
     <>
-      <Header />
-
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 text-[#003b5b]">
         <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left">Datenschutzerklärung</h1>
         <p className="text-sm sm:text-base"><strong>Gültig ab:</strong> Juni 2025</p>
@@ -101,8 +99,6 @@ export default function DatenschutzPage() {
           </p>
         </section>
       </main>
-
-      <Footer />
     </>
   )
 }
