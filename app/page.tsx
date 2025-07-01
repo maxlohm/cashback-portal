@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabaseClient'
 import { offers } from '@/utils/offers'
 import Link from 'next/link'
-import Header from './components/header'
-import Footer from './components/footer'
 import Image from 'next/image'
 
 export default function Home() {
@@ -42,7 +40,7 @@ export default function Home() {
 
   return (
     <>
-      {/* Bannerbereich */}
+      {/* 🔥 Banner mit Maus */}
       <div className="w-full bg-[#fdf7ee]">
         <Image
           src="/Banner.png"
@@ -54,37 +52,41 @@ export default function Home() {
         />
       </div>
 
-      {/* Hauptinhalt */}
-      <div className="bg-white text-gray-800">
-        <div className="max-w-7xl mx-auto p-6 sm:p-8 md:p-10 space-y-10">
-          <h2 className="text-3xl font-bold text-[#003b5b]">📢 Aktuelle Angebote</h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {offers.map((offer) => (
-              <div
-                key={offer.id}
-                className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition"
-              >
-                <div className="h-40 bg-gray-100 rounded mb-4 flex items-center justify-center text-gray-400">
-                  {/* Platzhalter für Bild */}
-                  Bild hier
-                </div>
-                <h3 className="text-xl font-bold text-[#003b5b] mb-1">{offer.name}</h3>
-                <p className="text-gray-600 text-sm mb-2">{offer.description}</p>
-                <p className="text-green-600 font-semibold mb-4">
-                  {offer.reward} € Prämie
-                </p>
-                <button
-                  onClick={() => handleClick(offer.id, offer.link)}
-                  className="w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 px-4 rounded-lg font-medium transition"
-                >
-                  Jetzt teilnehmen
-                </button>
-              </div>
-            ))}
-          </div>
+      {/* 🔠 Kategorienavigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap gap-4 text-sm font-medium text-gray-700">
+          <button className="text-[#003b5b] border-b-2 border-[#003b5b] pb-1">Alle Deals</button>
+          <button className="hover:text-[#003b5b]">Finanzen</button>
+          <button className="hover:text-[#003b5b]">Mobilfunk</button>
+          <button className="hover:text-[#003b5b]">Gratis</button>
+          <button className="hover:text-[#003b5b]">Shopping</button>
+          <button className="hover:text-[#003b5b]">Vergleiche</button>
         </div>
-      </div>  
+      </div>
+
+      {/* 💸 Angebote als Karten */}
+      <div className="bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
+          {offers.map((offer) => (
+            <div
+              key={offer.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-bold text-[#003b5b]">{offer.name}</div>
+                <div className="text-green-600 font-semibold">{offer.reward} €</div>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">{offer.description}</p>
+              <button
+                onClick={() => handleClick(offer.id, offer.link)}
+                className="w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 px-4 rounded-lg font-medium transition"
+              >
+                Zum Deal
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   )
 }

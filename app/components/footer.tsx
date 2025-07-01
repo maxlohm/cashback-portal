@@ -16,7 +16,7 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="font-semibold mb-2">Dein HydroCash-Konto</h4>
+          <h4 className="font-semibold mb-2">Dein Bonus-Nest-Konto</h4>
           <ul className="space-y-1">
             <li><Link href="/login" className="hover:underline">Login</Link></li>
             <li><Link href="/register" className="hover:underline">Registrieren</Link></li>
@@ -38,20 +38,20 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
           <p className="space-y-1 text-sm">
-            HydroCash GbR<br />
-            Jan Biefang &amp; Max Lohmann<br />
+            Bonus-Nest<br />
+            Max Lohmann<br />
             <a
-              href="mailto:hydroahsdjdsfgd@gmail.com"
+              href="mailto:info@bonus-nest.de"
               className="hover:underline text-[#0077b6] break-all"
             >
-              hydroahsdjdsfgd@gmail.com
+              info@bonus-nest.de
             </a>
           </p>
         </div>
       </div>
 
       <div className="text-center text-xs text-[#003b5b] mt-10 px-2">
-        &copy; {new Date().getFullYear()} HydroCash. Alle Rechte vorbehalten.
+        &copy; {new Date().getFullYear()} Bonus-Nest. Alle Rechte vorbehalten.
       </div>
     </footer>
   )
