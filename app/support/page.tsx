@@ -19,7 +19,6 @@ export default function SupportPage() {
   const [errors, setErrors] = useState<{ consent?: string }>({})
   const [loggedIn, setLoggedIn] = useState(false)
 
-  // 🔁 Nutzer laden und Daten ins Formular übernehmen
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser()
@@ -60,7 +59,7 @@ export default function SupportPage() {
     }
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
     if (!formData.consent) {
@@ -68,18 +67,36 @@ export default function SupportPage() {
       return
     }
 
-    console.log('Support-Anfrage gesendet:', formData)
-    alert('Vielen Dank! Deine Supportanfrage wurde gesendet.')
+    try {
+      const res = await fetch('/api/send-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
 
-    setFormData({
-      requestType: 'Sonstiges',
-      email: '',
-      firstName: '',
-      lastName: '',
-      subject: '',
-      message: '',
-      consent: false,
-    })
+      const result = await res.json()
+
+      if (result.success) {
+        alert('Vielen Dank! Deine Supportanfrage wurde gesendet.')
+
+        setFormData({
+          requestType: 'Sonstiges',
+          email: '',
+          firstName: '',
+          lastName: '',
+          subject: '',
+          message: '',
+          consent: false,
+        })
+        setLoggedIn(false)
+      } else {
+        console.error(result.error)
+        alert('Fehler beim Senden der Anfrage. Bitte versuche es später erneut.')
+      }
+    } catch (error) {
+      console.error(error)
+      alert('Ein unerwarteter Fehler ist aufgetreten.')
+    }
   }
 
   return (
