@@ -13,15 +13,15 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="text-lg sm:text-xl font-semibold mt-6">1. Verantwortlicher</h2>
           <p className="text-sm sm:text-base leading-relaxed">
-            Jan Biefang & Max Lohmann<br />
-            djfdsghjfj 3<br />
-            53445 Haas<br />
+            TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH<br />
+            Freseniusstraße 5<br />
+            65193 Wiesbaden<br />
             E-Mail:{' '}
             <a
-              href="mailto:hydroahsdjdsfgd@gmail.com"
+              href="mailto:info@bonus-nest.de"
               className="text-blue-600 underline break-all"
             >
-              hydroahsdjdsfgd@gmail.com
+              info@bonus-nest.de
             </a>
           </p>
         </section>
@@ -31,7 +31,7 @@ export default function DatenschutzPage() {
           <p className="text-sm sm:text-base leading-relaxed">
             Wir erheben personenbezogene Daten, wenn du dich auf unserer Plattform registrierst, Angebote wahrnimmst
             oder mit uns in Kontakt trittst. Dazu gehören: Name, E-Mail-Adresse, Nutzungsverhalten, IP-Adresse sowie
-            ggf. Informationen zur Prämienauszahlung und Partnerverfolgung.
+            ggf. Informationen zur Prämienabwicklung und Partnerverfolgung.
           </p>
         </section>
 
@@ -46,7 +46,7 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="text-lg sm:text-xl font-semibold mt-6">4. Weitergabe an Dritte</h2>
           <p className="text-sm sm:text-base leading-relaxed">
-            HydroCash arbeitet mit Partnerfirmen und Affiliate-Netzwerken zusammen. Zu diesem Zweck können
+            Bonus-Nest arbeitet mit Partnerfirmen und Affiliate-Netzwerken zusammen. Zu diesem Zweck können
             Trackingdaten pseudonymisiert oder anonymisiert an diese Partner übermittelt werden.
           </p>
         </section>
@@ -83,10 +83,10 @@ export default function DatenschutzPage() {
             Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
             Datenübertragbarkeit und Widerspruch. Wende dich dazu bitte an:{' '}
             <a
-              href="mailto:hydroahsdjdsfgd@gmail.com"
+              href="mailto:info@bonus-nest.de"
               className="text-blue-600 underline break-all"
             >
-              hydroahsdjdsfgd@gmail.com
+              info@bonus-nest.de
             </a>
           </p>
         </section>

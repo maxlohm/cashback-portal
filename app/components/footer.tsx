@@ -39,7 +39,7 @@ export default function Footer() {
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
           <p className="space-y-1 text-sm">
             Bonus-Nest<br />
-            Max Lohmann<br />
+            Khashayar Dehghani<br />
             <a
               href="mailto:info@bonus-nest.de"
               className="hover:underline text-[#0077b6] break-all"

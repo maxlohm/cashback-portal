@@ -18,79 +18,83 @@ export default function AGBPage() {
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">1. Allgemeines</h2>
             <p>
-              Diese Nutzungsbedingungen regeln die Nutzung der Plattform <strong>www.hydrocash.de</strong> (nachfolgend
-              „Plattform“), betrieben von <strong>Jan Biefang & Max Lohmann</strong> (nachfolgend „HydroCash“).
+              Diese Nutzungsbedingungen regeln die Nutzung der Plattform <strong>www.bonus-nest.de</strong> (nachfolgend
+              „Plattform“), betrieben von der <strong>TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH</strong>,
+              Freseniusstraße 5, 65193 Wiesbaden (nachfolgend „Bonus-Nest“).
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">2. Leistungen</h2>
             <p>
-              HydroCash bietet Nutzern die Möglichkeit, durch Teilnahme an Partneraktionen Prämienpunkte zu sammeln,
-              die anschließend im Prämienportal in Gutscheine (z. B. Amazon, eBay, Aral) umgewandelt werden können.
+              Bonus-Nest bietet registrierten Nutzern die Möglichkeit, durch Teilnahme an Partneraktionen Prämienguthaben
+              zu sammeln, das anschließend im internen Prämienbereich gegen Gutscheine (z. B. Amazon, eBay, Aral)
+              eingelöst werden kann.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">3. Registrierung und Teilnahme</h2>
             <p>
-              Die Nutzung der Plattform setzt eine kostenlose Registrierung voraus. Teilnahmeberechtigt sind
-              ausschließlich volljährige Personen mit Wohnsitz in Deutschland. Die bei der Registrierung gemachten
-              Angaben müssen wahrheitsgemäß sein.
+              Die Nutzung der Plattform erfordert eine kostenlose Registrierung. Teilnahmeberechtigt sind ausschließlich
+              volljährige Personen mit Wohnsitz in Deutschland. Alle im Registrierungsprozess angegebenen Informationen
+              müssen der Wahrheit entsprechen.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">4. Prämien und Auszahlungen</h2>
             <p>
-              Prämien werden nach erfolgreicher Validierung durch Partnerprogramme gutgeschrieben. Eine Barauszahlung
-              ist ausgeschlossen. Guthaben kann nur im internen Prämienportal eingelöst werden.
+              Prämiengutschriften erfolgen nach erfolgreicher Validierung durch Partnerprogramme. Eine Auszahlung in
+              Bargeld ist ausgeschlossen. Das Guthaben ist ausschließlich im Prämienbereich der Plattform einlösbar.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg sm:text-xl font-semibold">5. Influencer-Partnerprogramme</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">5. Empfehlungs- und Partnerprogramme</h2>
             <p>
-              HydroCash arbeitet mit Influencern zusammen, denen ein individueller Empfehlungslink bereitgestellt
-              wird. Für jede erfolgreiche Neukundenregistrierung über diesen Link erhält der Influencer eine
-              anteilige Vergütung (bis zu 50 %).
+              Bonus-Nest arbeitet mit Kooperationspartnern und Empfehlungsgebern (z. B. Influencer) zusammen, denen
+              individuelle Partnerlinks zur Verfügung gestellt werden. Für jede gültige Registrierung über einen solchen
+              Link kann eine anteilige Vergütung erfolgen.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">6. Missbrauch und Sperrung</h2>
             <p>
-              HydroCash behält sich das Recht vor, Nutzerkonten bei Verdacht auf Manipulation, Missbrauch oder
-              Falschangaben ohne Vorankündigung zu sperren oder zu löschen.
+              Bei Verdacht auf Manipulation, Falschangaben oder anderweitigem Missbrauch behält sich Bonus-Nest das Recht
+              vor, Nutzerkonten vorübergehend zu sperren oder dauerhaft zu löschen – auch ohne vorherige Ankündigung.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">7. Haftung</h2>
             <p>
-              HydroCash übernimmt keine Haftung für die Angebote oder Inhalte von Drittanbietern. Verträge kommen
-              ausschließlich zwischen dem Nutzer und dem Drittanbieter zustande.
+              Bonus-Nest übernimmt keine Haftung für Inhalte, Angebote oder Leistungen von Drittanbietern.
+              Vertragsverhältnisse entstehen ausschließlich zwischen dem Nutzer und dem jeweiligen Drittanbieter.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">8. Änderungen der Bedingungen</h2>
             <p>
-              HydroCash behält sich vor, diese Nutzungsbedingungen jederzeit zu ändern. Nutzer werden über Änderungen
-              rechtzeitig informiert.
+              Bonus-Nest behält sich das Recht vor, diese AGB jederzeit mit Wirkung für die Zukunft zu ändern. Änderungen
+              werden registrierten Nutzern rechtzeitig in geeigneter Form mitgeteilt.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">9. Kontakt</h2>
             <p>
-              Bei Fragen erreichst du uns unter:{' '}
-              <a href="mailto:hydroahsdjdsfgd@gmail.com" className="text-blue-600 underline break-all">
-                hydroahsdjdsfgd@gmail.com
-              </a>
+              Bei Fragen oder Anliegen erreichst du uns unter:{' '}
+              <a href="mailto:info@bonus-nest.de" className="text-blue-600 underline break-all">
+                info@bonus-nest.de
+              </a><br />
+              Telefon: 0157 35106870
             </p>
           </section>
         </div>
-      </main> </>
+      </main>
+    </>
   )
 }

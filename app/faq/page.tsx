@@ -11,18 +11,18 @@ export default function FAQPage() {
 
         <div className="space-y-6 text-sm sm:text-base leading-relaxed">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold">1. Wie funktioniert HydroCash?</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">1. Wie funktioniert Bonus-Nest?</h2>
             <p>
-              HydroCash ist eine Prämienplattform, auf der du für die Teilnahme an Aktionen unserer Partner
+              Bonus-Nest ist eine Prämienplattform, auf der du für die Teilnahme an Aktionen unserer Partner
               (z. B. Banken, Mobilfunkanbieter) belohnt wirst. Du wählst ein Angebot aus, nimmst daran teil, und
               nach erfolgreicher Bestätigung erhältst du Guthaben, das du im Prämienportal einlösen kannst.
             </p>
           </div>
 
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold">2. Was kostet die Nutzung von HydroCash?</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">2. Was kostet die Nutzung von Bonus-Nest?</h2>
             <p>
-              Die Nutzung von HydroCash ist 100 % kostenlos. Du musst lediglich ein Nutzerkonto anlegen, um Angebote
+              Die Nutzung von Bonus-Nest ist 100 % kostenlos. Du musst lediglich ein Nutzerkonto anlegen, um Angebote
               wahrzunehmen und Prämien zu erhalten.
             </p>
           </div>
@@ -30,7 +30,7 @@ export default function FAQPage() {
           <div>
             <h2 className="text-lg sm:text-xl font-semibold">3. Wie erhalte ich meine Prämien?</h2>
             <p>
-              Nach erfolgreicher Teilnahme an einem Angebot wird dein Guthaben auf deinem HydroCash-Konto
+              Nach erfolgreicher Teilnahme an einem Angebot wird dein Guthaben auf deinem Bonus-Nest-Konto
               gutgeschrieben. Dieses kannst du im Prämienbereich gegen Gutscheine wie Amazon, eBay, Aral usw.
               einlösen.
             </p>
@@ -48,7 +48,7 @@ export default function FAQPage() {
             <h2 className="text-lg sm:text-xl font-semibold">5. Warum wurde meine Teilnahme nicht erkannt?</h2>
             <p>
               Damit deine Teilnahme korrekt erfasst wird, musst du Cookies zulassen und den Angebotslink direkt über
-              HydroCash öffnen. AdBlocker oder VPNs können das Tracking verhindern. Nutze am besten einen sauberen
+              Bonus-Nest öffnen. AdBlocker oder VPNs können das Tracking verhindern. Nutze am besten einen sauberen
               Browser (Inkognito-Modus vermeiden).
             </p>
           </div>
@@ -64,7 +64,7 @@ export default function FAQPage() {
           <div>
             <h2 className="text-lg sm:text-xl font-semibold">7. Gibt es eine Auszahlung auf Bankkonto oder PayPal?</h2>
             <p>
-              Nein. Die Prämien werden ausschließlich über das interne HydroCash-Prämienportal in Form von Gutscheinen
+              Nein. Die Prämien werden ausschließlich über das interne Bonus-Nest-Prämienportal in Form von Gutscheinen
               ausgezahlt.
             </p>
           </div>
@@ -78,7 +78,7 @@ export default function FAQPage() {
           </div>
 
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold">9. Ist HydroCash seriös?</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">9. Ist Bonus-Nest seriös?</h2>
             <p>
               Ja! Wir arbeiten nur mit geprüften Partnerunternehmen und verwenden bewährte Affiliate-Tracking-Systeme.
               Deine Daten werden gemäß DSGVO geschützt.
@@ -90,10 +90,10 @@ export default function FAQPage() {
             <p>
               Du erreichst uns per E-Mail unter:{' '}
               <a
-                href="mailto:hydroahsdjdsfgd@gmail.com"
+                href="mailto:info@bonus-nest.de"
                 className="text-blue-600 underline break-all"
               >
-                hydroahsdjdsfgd@gmail.com
+                info@bonus-nest.de
               </a>. Wir bemühen uns, alle Anfragen schnellstmöglich zu beantworten.
             </p>
           </div>
