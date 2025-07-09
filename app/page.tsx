@@ -40,14 +40,14 @@ export default function Home() {
 
   return (
     <>
-      {/* 🔥 Banner mit Maus */}
-      <div className="w-full bg-[#fdf7ee]">
+      {/* 🔥 Banner mit vollständiger Breite und Höhe */}
+      <div className="w-full bg-[#fdf7ee] overflow-hidden">
         <Image
           src="/Banner.png"
           alt="Banner"
           width={1920}
-          height={500}
-          className="w-full h-auto object-cover"
+          height={160}
+          className="w-full h-[160px] object-cover"
           priority
         />
       </div>

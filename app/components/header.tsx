@@ -41,31 +41,19 @@ export default function Header() {
   }
 
   return (
-    <header className="relative bg-[#d0f0f7] border-b border-cyan-300 text-[#003b5b] z-50 overflow-visible">
-
-      {/* Mausgrafik */}
-      <div className="hidden sm:block absolute top-[-30px] right-6 z-10 w-[300px] h-auto">
-        <Image
-          src="/mouse-v2.png"
-          alt="Mouse"
-          width={300}
-          height={300}
-          className="object-contain pointer-events-none select-none"
-        />
-      </div>
-
-      {/* Menübutton oben rechts */}
-      <div ref={menuRef} className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+    <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50 overflow-visible">
+      
+      {/* Menü-Button oben rechts */}
+      <div ref={menuRef} className="absolute top-4 right-4 z-50">
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="px-3 py-2 sm:px-4 sm:py-2 bg-white border border-cyan-300 rounded-md shadow hover:bg-cyan-100 text-xl font-bold transition"
+            className="px-3 py-2 bg-white border border-gray-300 rounded-md shadow hover:bg-gray-100 text-xl font-bold transition"
             aria-label="Menü öffnen"
           >
             ☰
           </button>
 
-          {/* Dropdown-Menü */}
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right">
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">🏠 Angebote</Link>
@@ -100,25 +88,43 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Logo & Titel */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center px-4 sm:px-6 pt-4 sm:pt-6 pb-8 sm:pb-10 min-h-[200px] sm:min-h-[280px] relative z-10">
-        <Link href="/" className="flex items-center space-x-4 z-20">
+      {/* Hauptinhalt: Logo – Schrift – Maus */}
+      <div className="flex justify-between items-center px-4 sm:px-8 py-6 sm:py-10">
+        
+        {/* Logo links */}
+        <div className="flex-shrink-0">
+          <Link href="/">
+            <Image
+              src="/logo.png"
+              alt="Bonus-Nest Logo"
+              width={120}
+              height={120}
+              className="object-contain w-20 sm:w-28"
+            />
+          </Link>
+        </div>
+
+        {/* Schriftzug mittig */}
+        <div className="flex-grow flex justify-center">
           <Image
-            src="/logo.png"
-            alt="Bonus-Nest Logo"
-            width={100}
+            src="/Bildschirmfoto%202025-07-07%20um%2018.34.57.png"
+            alt="Bonus-Nest Schriftzug"
+            width={500}
             height={100}
-            className="rounded-full w-20 h-20 sm:w-32 sm:h-32 object-cover"
+            className="object-contain max-w-full h-auto"
           />
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold hover:text-[#008fc7] transition-colors">
-              Bonus-Nest
-            </h1>
-            <p className="text-sm sm:text-base text-gray-700">
-              Dein digitales Nest für Boni und Prämien
-            </p>
-          </div>
-        </Link>
+        </div>
+
+        {/* Maus rechts */}
+        <div className="flex-shrink-0">
+          <Image
+            src="/mouse-v2.png"
+            alt="Maus"
+            width={120}
+            height={120}
+            className="object-contain w-20 sm:w-28"
+          />
+        </div>
       </div>
     </header>
   )
