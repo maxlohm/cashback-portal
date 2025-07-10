@@ -55,12 +55,19 @@ export default function Home() {
       {/* 🔠 Kategorienavigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap gap-4 text-sm font-medium text-gray-700">
-          <button className="text-[#003b5b] border-b-2 border-[#003b5b] pb-1">Alle Deals</button>
-          <button className="hover:text-[#003b5b]">Finanzen</button>
-          <button className="hover:text-[#003b5b]">Mobilfunk</button>
-          <button className="hover:text-[#003b5b]">Gratis</button>
-          <button className="hover:text-[#003b5b]">Shopping</button>
-          <button className="hover:text-[#003b5b]">Vergleiche</button>
+          <Link
+            href="/"
+            className="text-[#003b5b] border-b-2 border-[#003b5b] pb-1"
+          >
+            Alle Deals
+          </Link>
+          <Link href="/Finanzen/gothaerZahn" className="hover:text-[#003b5b]">
+            Finanzen
+          </Link>
+          <span className="hover:text-[#003b5b] cursor-pointer">Mobilfunk</span>
+          <span className="hover:text-[#003b5b] cursor-pointer">Gratis</span>
+          <span className="hover:text-[#003b5b] cursor-pointer">Shopping</span>
+          <span className="hover:text-[#003b5b] cursor-pointer">Vergleiche</span>
         </div>
       </div>
 
