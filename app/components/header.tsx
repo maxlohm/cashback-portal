@@ -41,11 +41,11 @@ export default function Header() {
   }
 
   return (
-    <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50 overflow-visible">
+    <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50">
       {/* Menü-Button */}
       <div
         ref={menuRef}
-        className="absolute top-6 sm:top-8 right-4 sm:right-8 z-50"
+        className="absolute top-4 right-4 z-50 sm:top-6 sm:right-6"
       >
         <div className="relative">
           <button
@@ -87,10 +87,10 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Hauptinhalt */}
-      <div className="flex justify-between items-center px-4 sm:px-8 py-6 sm:py-8 md:py-10 lg:py-12 gap-4">
-        {/* Logo – 3/5 größer */}
-        <div className="w-32 sm:w-44 md:w-56 flex-shrink-0">
+      {/* Header-Inhalte */}
+      <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-6 sm:py-10 gap-4 sm:gap-6">
+        {/* Logo */}
+        <div className="w-40 sm:w-44 md:w-56">
           <Link href="/">
             <Image
               src="/Bonus-Nest_1024px.png"
@@ -104,23 +104,21 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Schriftzug – 3/5 größer */}
-        <div className="flex-grow flex justify-center px-2">
-          <div className="w-72 sm:w-96 md:w-[480px] lg:w-[520px]">
-            <Image
-              src="/Logo_Schrift.png"
-              alt="Bonus-Nest Schriftzug"
-              width={0}
-              height={0}
-              sizes="100vw"
-              className="w-full h-auto object-contain"
-              priority
-            />
-          </div>
+        {/* Schriftzug */}
+        <div className="w-60 sm:w-96 md:w-[480px] lg:w-[520px]">
+          <Image
+            src="/Logo_Schrift.png"
+            alt="Bonus-Nest Schriftzug"
+            width={0}
+            height={0}
+            sizes="100vw"
+            className="w-full h-auto object-contain"
+            priority
+          />
         </div>
 
-        {/* Maus – 3/5 größer */}
-        <div className="w-32 sm:w-44 md:w-56 flex-shrink-0 -mt-2 sm:-mt-4">
+        {/* Maus */}
+        <div className="w-40 sm:w-44 md:w-56 -mt-2 sm:-mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"
             alt="Bonus-Nest Maus"
