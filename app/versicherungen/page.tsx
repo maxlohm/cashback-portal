@@ -1,13 +1,25 @@
 'use client'
 
 import KategorieNavigation from '../navigation/page'
-import Image from 'next/image'
 import Link from 'next/link'
+import Image from 'next/image'
 
-export default function Versicherungen() {
+export default function Page() {
   return (
-    <div>
+    <>
       <KategorieNavigation />
+
+      <div className="w-full">
+        <Image
+          src="/Banner.png"
+          alt="Banner"
+          width={1440}
+          height={270}
+          className="w-full h-auto object-cover"
+          priority
+        />
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-4">🛡️ Versicherungen</h1>
         <p className="mb-6">
@@ -21,8 +33,8 @@ export default function Versicherungen() {
           </p>
 
           <Link href="/versicherungen/gothaerZahn">
-            <Image
-              src="/gothaer-banner.jpg" // Nutze z. B. ein vorhandenes Bild in /public
+            <img
+              src="/gothaer-banner.jpg"
               alt="Gothaer Zahnzusatzversicherung"
               width={500}
               height={300}
@@ -31,6 +43,6 @@ export default function Versicherungen() {
           </Link>
         </div>
       </div>
-    </div>
+    </>
   )
 }
