@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/utils/supabaseClient'
 import KategorieNavigation from '@/app/navigation/page'
 
-export default function HomePage() {
+export default function FinanzenPage() {
   const [loggedIn, setLoggedIn] = useState(false)
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function HomePage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-             <img
+              <img
   src="https://www.financeads.net/tb.php?t=77500V191135896B"
   alt="Finanzen.de Angebot"
   width={300}
