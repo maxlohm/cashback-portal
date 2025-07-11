@@ -45,7 +45,7 @@ export default function Header() {
       {/* Menü-Button oben rechts */}
       <div
         ref={menuRef}
-        className="absolute top-14 right-8 z-50 object-contain w-[32px] h-[32px]"
+        className="absolute top-20 right-8 z-50 object-contain w-[42px] h-[42px]"
       >
         <div className="relative">
           <button
@@ -57,7 +57,7 @@ export default function Header() {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
+            <div className="absolute right-0 mt-2 w-52 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">🏠 Angebote</Link>
               {!loadingAuth && loggedIn && (
                 <>
@@ -88,16 +88,16 @@ export default function Header() {
       </div>
 
       {/* Hauptinhalt: Logo – Schrift – Maus */}
-      <div className="flex justify-between items-center px-4 sm:px-6 py-4 sm:py-5">
+      <div className="flex justify-between items-center px-6 sm:px-8 py-6 sm:py-8">
         {/* Logo links */}
         <div className="flex-shrink-0">
           <Link href="/">
             <Image
               src="/logo.png?updated=1"
               alt="Bonus-Nest Logo"
-              width={120}
-              height={120}
-              className="object-contain w-24 sm:w-36"
+              width={160}
+              height={160}
+              className="object-contain w-32 sm:w-48"
             />
           </Link>
         </div>
@@ -107,20 +107,20 @@ export default function Header() {
           <Image
             src="/Bildschirmfoto%202025-07-07%20um%2018.34.57.png"
             alt="Bonus-Nest Schriftzug"
-            width={340}
-            height={80}
+            width={450}
+            height={120}
             className="object-contain max-w-full h-auto"
           />
         </div>
 
         {/* Maus rechts */}
-        <div className="flex-shrink-0 relative -mt-[10px]">
+        <div className="flex-shrink-0 relative -mt-[14px]">
           <Image
-            src="/mouse-v2.png"
+            src="/LogoMouse_rechts_Retusche.webp"
             alt="Maus"
-            width={176}
-            height={168}
-            className="object-contain w-[176px] h-[168px]"
+            width={230}
+            height={220}
+            className="object-contain w-[230px] h-[220px]"
           />
         </div>
       </div>
