@@ -7,8 +7,12 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'www.financeads.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'a.partner-versicherung.de', // <-- wichtig für KFZ Deal
+      },
     ],
   },
 }
 
-module.exports = nextConfig
+module.exports = nextConfig;

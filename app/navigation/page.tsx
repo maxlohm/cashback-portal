@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const categories = [
-  { name: 'Alle Deals', href: '/alleDeals' },
+  { name: 'Alle Deals', href: '/' },
   { name: 'Finanzen', href: '/finanzen' },
   { name: 'Versicherungen', href: '/versicherungen' },
   { name: 'Mobilfunk', href: '/mobilfunk' },
@@ -21,7 +21,11 @@ export default function KategorieNavigation() {
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
           {categories.map((cat) => {
-            const isActive = pathname.startsWith(cat.href)
+            const isActive =
+              cat.href === '/'
+                ? pathname === '/'
+                : pathname.startsWith(cat.href)
+
             return (
               <Link
                 key={cat.href}
