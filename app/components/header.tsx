@@ -88,44 +88,47 @@ export default function Header() {
       </div>
 
       {/* Hauptinhalt */}
-      <div className="flex justify-between items-center px-4 sm:px-8 py-4 sm:py-6">
-        {/* Logo */}
-        <div className="w-20 sm:w-28 md:w-36 flex-shrink-0">
+      <div className="flex justify-between items-center px-4 sm:px-8 py-4 sm:py-6 gap-4">
+        {/* Logo – 3/5 größer */}
+        <div className="w-32 sm:w-44 md:w-56 flex-shrink-0">
           <Link href="/">
             <Image
-              src="/logo.png?updated=1"
+              src="/Bonus-Nest_1024px.png"
               alt="Bonus-Nest Logo"
               width={0}
               height={0}
               sizes="100vw"
               className="w-full h-auto object-contain"
+              priority
             />
           </Link>
         </div>
 
-        {/* Schriftzug */}
+        {/* Schriftzug – 3/5 größer */}
         <div className="flex-grow flex justify-center px-2">
-          <div className="w-56 sm:w-72 md:w-[340px] lg:w-[400px]">
+          <div className="w-72 sm:w-96 md:w-[480px] lg:w-[520px]">
             <Image
-              src="/Bildschirmfoto%202025-07-07%20um%2018.34.57.png"
+              src="/Logo_Schrift.png"
               alt="Bonus-Nest Schriftzug"
               width={0}
               height={0}
               sizes="100vw"
               className="w-full h-auto object-contain"
+              priority
             />
           </div>
         </div>
 
-        {/* Maus */}
-        <div className="w-28 sm:w-40 md:w-52 flex-shrink-0 -mt-2 sm:-mt-4">
+        {/* Maus – 3/5 größer */}
+        <div className="w-32 sm:w-44 md:w-56 flex-shrink-0 -mt-2 sm:-mt-4">
           <Image
-            src="/mouse-v2.png"
-            alt="Maus"
+            src="/LogoMouse_rechts_Retusche.webp"
+            alt="Bonus-Nest Maus"
             width={0}
             height={0}
             sizes="100vw"
             className="w-full h-auto object-contain"
+            priority
           />
         </div>
       </div>
