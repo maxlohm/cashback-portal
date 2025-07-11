@@ -25,7 +25,7 @@ export default function HomePage() {
       {/* 🔽 Banner direkt unter der Navigation */}
  <div className="w-full">
   <Image
-    src="/Banner.png" // <- groß geschrieben wie im Dateinamen!
+    src="/bannerrichtig.png" // <- groß geschrieben wie im Dateinamen!
     alt="Bonus-Nest Banner"
     width={1440}
     height={300}
@@ -33,7 +33,6 @@ export default function HomePage() {
     priority
   />
 </div>
-
 
       <main className="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-10">
         <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left text-[#003b5b]">
