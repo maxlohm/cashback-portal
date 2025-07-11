@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="mt-20 bg-[#d0f0f7] text-[#003b5b] px-4 sm:px-6 py-10 border-t border-cyan-300">
+    <footer className="mt-20 bg-[#f1e8cc] text-[#003b5b] px-4 sm:px-6 py-10 border-t border-cyan-300">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div>
           <h4 className="font-semibold mb-2">Weitere beliebte Deals</h4>

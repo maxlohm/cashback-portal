@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 const categories = [
   { name: 'Alle Deals', href: '/alleDeals' },
   { name: 'Finanzen', href: '/finanzen' },
- { name: 'Versicherungen', href: '/versicherungen' },
+  { name: 'Versicherungen', href: '/versicherungen' },
   { name: 'Mobilfunk', href: '/mobilfunk' },
   { name: 'Gratis', href: '/gratis' },
   { name: 'Shopping', href: '/shopping' },
@@ -17,25 +17,28 @@ export default function KategorieNavigation() {
   const pathname = usePathname()
 
   return (
-    <div className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap gap-4 text-sm font-medium text-gray-700">
-        {categories.map((cat) => {
-          const isActive = pathname.startsWith(cat.href)
-          return (
-            <Link
-              key={cat.href}
-              href={cat.href}
-              className={
-                isActive
-                  ? 'text-[#003b5b] border-b-2 border-[#003b5b] pb-1'
-                  : 'hover:text-[#003b5b]'
-              }
-            >
-              {cat.name}
-            </Link>
-          )
-        })}
+    <nav className="bg-[#f7f3e6] border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+          {categories.map((cat) => {
+            const isActive = pathname.startsWith(cat.href)
+            return (
+              <Link
+                key={cat.href}
+                href={cat.href}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
+                  ${
+                    isActive
+                      ? 'bg-[#003b5b] text-white'
+                      : 'bg-[#f1e8cc] text-[#003b5b] hover:bg-[#e4d8b8] hover:shadow-sm'
+                  }`}
+              >
+                {cat.name}
+              </Link>
+            )
+          })}
+        </div>
       </div>
-    </div>
+    </nav>
   )
 }
