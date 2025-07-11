@@ -88,7 +88,7 @@ export default function Header() {
       </div>
 
       {/* Hauptinhalt */}
-      <div className="flex justify-between items-center px-4 sm:px-8 py-4 sm:py-6 gap-4">
+      <div className="flex justify-between items-center px-4 sm:px-8 py-6 sm:py-8 md:py-10 lg:py-12 gap-4">
         {/* Logo – 3/5 größer */}
         <div className="w-32 sm:w-44 md:w-56 flex-shrink-0">
           <Link href="/">
