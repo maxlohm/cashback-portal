@@ -42,22 +42,22 @@ export default function Header() {
 
   return (
     <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50 overflow-visible">
-      {/* Menü-Button oben rechts */}
+      {/* Menü-Button */}
       <div
         ref={menuRef}
-        className="absolute top-20 right-8 z-50 object-contain w-[42px] h-[42px]"
+        className="absolute top-6 sm:top-8 right-4 sm:right-8 z-50"
       >
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="w-full h-full px-1 py-0 bg-white border border-gray-300 rounded-md shadow hover:bg-gray-100 text-lg font-bold transition"
+            className="w-10 h-10 sm:w-12 sm:h-12 bg-white border border-gray-300 rounded-md shadow hover:bg-gray-100 text-xl font-bold transition"
             aria-label="Menü öffnen"
           >
             ☰
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-52 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
+            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">🏠 Angebote</Link>
               {!loadingAuth && loggedIn && (
                 <>
@@ -87,40 +87,45 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Hauptinhalt: Logo – Schrift – Maus */}
-      <div className="flex justify-between items-center px-6 sm:px-8 py-6 sm:py-8">
-        {/* Logo links */}
-        <div className="flex-shrink-0">
+      {/* Hauptinhalt */}
+      <div className="flex justify-between items-center px-4 sm:px-8 py-4 sm:py-6">
+        {/* Logo */}
+        <div className="w-20 sm:w-28 md:w-36 flex-shrink-0">
           <Link href="/">
             <Image
               src="/logo.png?updated=1"
               alt="Bonus-Nest Logo"
-              width={160}
-              height={160}
-              className="object-contain w-32 sm:w-48"
+              width={0}
+              height={0}
+              sizes="100vw"
+              className="w-full h-auto object-contain"
             />
           </Link>
         </div>
 
-        {/* Schriftzug mittig */}
-        <div className="flex-grow flex justify-center">
-          <Image
-            src="/Bildschirmfoto%202025-07-07%20um%2018.34.57.png"
-            alt="Bonus-Nest Schriftzug"
-            width={450}
-            height={120}
-            className="object-contain max-w-full h-auto"
-          />
+        {/* Schriftzug */}
+        <div className="flex-grow flex justify-center px-2">
+          <div className="w-56 sm:w-72 md:w-[340px] lg:w-[400px]">
+            <Image
+              src="/Bildschirmfoto%202025-07-07%20um%2018.34.57.png"
+              alt="Bonus-Nest Schriftzug"
+              width={0}
+              height={0}
+              sizes="100vw"
+              className="w-full h-auto object-contain"
+            />
+          </div>
         </div>
 
-        {/* Maus rechts */}
-        <div className="flex-shrink-0 relative -mt-[14px]">
+        {/* Maus */}
+        <div className="w-28 sm:w-40 md:w-52 flex-shrink-0 -mt-2 sm:-mt-4">
           <Image
-            src="/LogoMouse_rechts_Retusche.webp"
+            src="/mouse-v2.png"
             alt="Maus"
-            width={230}
-            height={220}
-            className="object-contain w-[230px] h-[220px]"
+            width={0}
+            height={0}
+            sizes="100vw"
+            className="w-full h-auto object-contain"
           />
         </div>
       </div>
