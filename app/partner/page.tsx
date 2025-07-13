@@ -8,15 +8,13 @@ export default function PartnerPage() {
     <div className="min-h-screen bg-[#f7f3e6] text-[#003b5b]">
       {/* Headerbild */}
       <div className="relative w-full h-96">
-  <div className="relative w-full h-96">
-  <Image
-    src="/Partner.png"
-    alt="Partner werden bei Bonus-Nest"
-    layout="fill"
-    objectFit="cover"
-    className="rounded-none"
-  />
-</div>
+        <Image
+          src="/Partner.png"
+          alt="Partner werden bei Bonus-Nest"
+          layout="fill"
+          objectFit="cover"
+          className="rounded-none"
+        />
       </div>
 
       {/* Inhalt */}
@@ -51,13 +49,18 @@ export default function PartnerPage() {
           </div>
         </div>
 
-        <div className="text-center">
+        {/* Temporär entfernt, um Build-Fehler zu vermeiden */}
+        {/* <div className="text-center">
           <Link
             href="/support?type=Kooperationsanfrage"
             className="inline-block bg-yellow-500 text-black font-semibold py-3 px-6 rounded-xl hover:bg-yellow-600 transition"
           >
             Jetzt kostenlos Partner werden
           </Link>
+        </div> */}
+
+        <div className="text-center text-gray-600 italic">
+          Interesse an einer Kooperation? Schreib uns über das Kontaktformular.
         </div>
       </section>
     </div>
