@@ -1,10 +1,10 @@
 'use client'
 
-import Header from '../components/header'
-import Footer from '../components/footer'
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
+import Header from '../components/header'
+import Footer from '../components/footer'
 
 export default function SupportPage() {
   const [formData, setFormData] = useState({
@@ -26,16 +26,8 @@ export default function SupportPage() {
       const { data } = await supabase.auth.getUser()
       const user = data?.user
 
-      const requestedType = searchParams.get('type')
-
-      setFormData((prev) => ({
-        ...prev,
-        requestType: requestedType || 'Sonstiges',
-      }))
-
       if (user) {
         setLoggedIn(true)
-
         const fullName = user.user_metadata?.full_name || ''
         const [first, ...last] = fullName.split(' ')
 
@@ -44,24 +36,36 @@ export default function SupportPage() {
           email: user.email || '',
           firstName: first || '',
           lastName: last?.join(' ') || '',
-          requestType: requestedType || 'Sonstiges',
         }))
       }
     }
 
     fetchUser()
+  }, [])
+
+  useEffect(() => {
+    const requestedType = searchParams.get('type')
+    if (requestedType) {
+      setFormData((prev) => ({
+        ...prev,
+        requestType: requestedType,
+      }))
+    }
   }, [searchParams])
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const target = e.target
     const name = target.name
     const value = target.value
-    const type = target.type
-    const checked = (target as HTMLInputElement).checked
+
+    const isCheckbox = target instanceof HTMLInputElement && target.type === 'checkbox'
+    const checked = isCheckbox ? target.checked : undefined
 
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: isCheckbox ? checked : value,
     }))
 
     if (name === 'consent') {
@@ -88,7 +92,6 @@ export default function SupportPage() {
 
       if (result.success) {
         alert('Vielen Dank! Deine Supportanfrage wurde gesendet.')
-
         setFormData({
           requestType: 'Sonstiges',
           email: '',
