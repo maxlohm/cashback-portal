@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
 
 export default function SupportClientForm() {
@@ -17,7 +16,6 @@ export default function SupportClientForm() {
 
   const [errors, setErrors] = useState<{ consent?: string }>({})
   const [loggedIn, setLoggedIn] = useState(false)
-  const searchParams = useSearchParams()
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -39,14 +37,17 @@ export default function SupportClientForm() {
   }, [])
 
   useEffect(() => {
-    const requestedType = searchParams.get('type')
-    if (requestedType) {
-      setFormData((prev) => ({
-        ...prev,
-        requestType: requestedType,
-      }))
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search)
+      const requestedType = searchParams.get('type')
+      if (requestedType) {
+        setFormData((prev) => ({
+          ...prev,
+          requestType: requestedType,
+        }))
+      }
     }
-  }, [searchParams])
+  }, [])
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
