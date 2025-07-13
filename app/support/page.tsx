@@ -1,14 +1,10 @@
 'use client'
 
-export const dynamic = 'force-dynamic' // verhindert SSG/SSR und erlaubt useSearchParams
-
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
-import Header from '../components/header'
-import Footer from '../components/footer'
 
-export default function SupportPage() {
+export default function SupportClientForm() {
   const [formData, setFormData] = useState({
     requestType: 'Sonstiges',
     email: '',
@@ -27,12 +23,10 @@ export default function SupportPage() {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser()
       const user = data?.user
-
       if (user) {
         setLoggedIn(true)
         const fullName = user.user_metadata?.full_name || ''
         const [first, ...last] = fullName.split(' ')
-
         setFormData((prev) => ({
           ...prev,
           email: user.email || '',
@@ -41,7 +35,6 @@ export default function SupportPage() {
         }))
       }
     }
-
     fetchUser()
   }, [])
 
@@ -63,12 +56,10 @@ export default function SupportPage() {
     const value = target.value
     const isCheckbox = target instanceof HTMLInputElement && target.type === 'checkbox'
     const checked = isCheckbox ? target.checked : undefined
-
     setFormData((prev) => ({
       ...prev,
       [name]: isCheckbox ? checked : value,
     }))
-
     if (name === 'consent') {
       setErrors((prev) => ({ ...prev, consent: '' }))
     }
@@ -76,7 +67,6 @@ export default function SupportPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-
     if (!formData.consent) {
       setErrors({ consent: 'Bitte akzeptiere die Datenschutzerklärung.' })
       return
