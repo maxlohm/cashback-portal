@@ -17,14 +17,13 @@ export default function PartnerPage() {
     className="rounded-none"
   />
 </div>
-
       </div>
 
       {/* Inhalt */}
       <section className="max-w-4xl mx-auto px-6 py-16 bg-[#f1e8cc] rounded-xl mt-10 shadow-md">
         <h2 className="text-3xl font-semibold mb-6">Werde Teil von Bonus-Nest</h2>
         <p className="text-lg mb-6">
-          Du hast eine Community, Website oder ein Netzwerk? Dann nutze dein Potenzial – wir
+          hast eine Community, Website oder ein Netzwerk? Dann nutze dein Potenzial – wir
           bieten dir eine einfache Möglichkeit, mit unseren exklusiven Bonus-Angeboten
           Geld zu verdienen. Kein technisches Know-how nötig – einfach starten, Deals teilen,
           und von jedem geworbenen User profitieren.
