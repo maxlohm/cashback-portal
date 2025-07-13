@@ -5,7 +5,7 @@ export default function ImpressumPage() {
 
 <p className="text-sm italic mb-6">Die Website Bonus-Nest wird betrieben von der TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH.</p>
 
-      <p><strong>Angaben gemäß § 5 TMG</strong></p>
+      <p><strong>Angaben gemäß § 5 DDG</strong></p>
       <p className="mt-2">
         TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH<br />
         Freseniusstraße 5<br />

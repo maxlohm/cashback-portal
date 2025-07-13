@@ -25,11 +25,11 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-2">Sitemap</h4>
           <ul className="space-y-1">
-            <li><Link href="/faq" className="hover:underline">❓ FAQ</Link></li>
-            <li><Link href="/support" className="hover:underline">🛟 Support</Link></li>
-            <li><Link href="/datenschutz" className="hover:underline">🛡️ Datenschutz</Link></li>
-            <li><Link href="/agb" className="hover:underline">📜 Nutzungsbedingungen</Link></li>
-            <li><Link href="/impressum" className="hover:underline">📄 Impressum</Link></li>
+            <li><Link href="/faq" className="hover:underline"> FAQ</Link></li>
+            <li><Link href="/support" className="hover:underline"> Support</Link></li>
+            <li><Link href="/datenschutz" className="hover:underline"> Datenschutz</Link></li>
+            <li><Link href="/agb" className="hover:underline"> Nutzungsbedingungen</Link></li>
+            <li><Link href="/impressum" className="hover:underline"> Impressum</Link></li>
           </ul>
         </div>
 

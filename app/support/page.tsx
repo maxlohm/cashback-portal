@@ -100,108 +100,110 @@ export default function SupportPage() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10 text-[#003b5b]">
-      <h1 className="text-2xl font-bold text-center mb-8">📬 Neue Supportanfrage</h1>
+    <div className="min-h-screen bg-[#f7f3e6] py-10 px-4">
+      <main className="max-w-2xl mx-auto text-[#003b5b] bg-[#f1e8cc] p-6 rounded-xl shadow-md">
+        <h1 className="text-2xl font-bold text-center mb-8">📬 Neue Supportanfrage</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-[#d0f0f7] p-6 rounded-xl shadow border border-blue-200">
-        <select
-          name="requestType"
-          value={formData.requestType}
-          onChange={handleChange}
-          className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
-        >
-          <option>Sonstiges</option>
-          <option>Technisches Problem</option>
-          <option>Prämienfrage</option>
-          <option>Account / Login</option>
-          <option>Kooperationsanfrage</option>
-        </select>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <select
+            name="requestType"
+            value={formData.requestType}
+            onChange={handleChange}
+            className="w-full border rounded px-4 py-2 bg-white"
+          >
+            <option>Sonstiges</option>
+            <option>Technisches Problem</option>
+            <option>Prämienfrage</option>
+            <option>Account / Login</option>
+            <option>Kooperationsanfrage</option>
+          </select>
 
-        <input
-          type="email"
-          name="email"
-          placeholder={loggedIn ? '' : 'Trage deine E-Mail hier ein *'}
-          value={formData.email}
-          onChange={handleChange}
-          required
-          className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
-        />
-
-        <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
           <input
-            type="text"
-            name="firstName"
-            placeholder="Vorname *"
-            value={formData.firstName}
+            type="email"
+            name="email"
+            placeholder={loggedIn ? '' : 'Trage deine E-Mail hier ein *'}
+            value={formData.email}
             onChange={handleChange}
             required
-            className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
+            className="w-full border rounded px-4 py-2 bg-white"
           />
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Nachname *"
-            value={formData.lastName}
-            onChange={handleChange}
-            required
-            className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
-          />
-        </div>
 
-        <input
-          type="text"
-          name="subject"
-          placeholder="Betreff *"
-          value={formData.subject}
-          onChange={handleChange}
-          required
-          className="w-full border border-blue-300 rounded px-4 py-2 bg-white"
-        />
-
-        <textarea
-          name="message"
-          placeholder="Nachricht *"
-          value={formData.message}
-          onChange={handleChange}
-          required
-          className="w-full border border-blue-300 rounded px-4 py-2 bg-white h-32"
-        />
-
-        <div className="space-y-2 text-sm">
-          <label className="flex items-start space-x-2">
+          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
             <input
-              type="checkbox"
-              name="consent"
-              checked={formData.consent}
+              type="text"
+              name="firstName"
+              placeholder="Vorname *"
+              value={formData.firstName}
               onChange={handleChange}
-              className="mt-1 accent-[#003b5b]"
+              required
+              className="w-full border rounded px-4 py-2 bg-white"
             />
-            <span>
-              Ich akzeptiere die{' '}
-              <a
-                href="/datenschutz"
-                className="underline text-blue-600"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Datenschutzerklärung
-              </a>{' '}
-              und stimme der elektronischen Verarbeitung meiner Angaben zur Bearbeitung der Anfrage zu.
-            </span>
-          </label>
-          {errors.consent && <p className="text-red-600">{errors.consent}</p>}
-        </div>
+            <input
+              type="text"
+              name="lastName"
+              placeholder="Nachname *"
+              value={formData.lastName}
+              onChange={handleChange}
+              required
+              className="w-full border rounded px-4 py-2 bg-white"
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={!formData.consent}
-          className={`w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 rounded-lg font-medium transition ${
-            !formData.consent ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          Anfrage absenden
-        </button>
-      </form>
-    </main>
+          <input
+            type="text"
+            name="subject"
+            placeholder="Betreff *"
+            value={formData.subject}
+            onChange={handleChange}
+            required
+            className="w-full border rounded px-4 py-2 bg-white"
+          />
+
+          <textarea
+            name="message"
+            placeholder="Nachricht *"
+            value={formData.message}
+            onChange={handleChange}
+            required
+            className="w-full border rounded px-4 py-2 bg-white h-32"
+          />
+
+          <div className="space-y-2 text-sm">
+            <label className="flex items-start space-x-2">
+              <input
+                type="checkbox"
+                name="consent"
+                checked={formData.consent}
+                onChange={handleChange}
+                className="mt-1 accent-[#003b5b]"
+              />
+              <span>
+                Ich akzeptiere die{' '}
+                <a
+                  href="/datenschutz"
+                  className="underline text-blue-600"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Datenschutzerklärung
+                </a>{' '}
+                und stimme der elektronischen Verarbeitung meiner Angaben zur Bearbeitung der Anfrage zu.
+              </span>
+            </label>
+            {errors.consent && <p className="text-red-600">{errors.consent}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={!formData.consent}
+            className={`w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 rounded-lg font-medium transition ${
+              !formData.consent ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            Anfrage absenden
+          </button>
+        </form>
+      </main>
+    </div>
   )
 }

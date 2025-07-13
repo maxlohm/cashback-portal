@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../utils/supabaseClient'
 import { offers } from '../../utils/offers'
-import Header from '../components/header'
-import Footer from '../components/footer'
 
 interface Click {
   id: string
@@ -23,21 +21,47 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       const { data: userData } = await supabase.auth.getUser()
-      if (!userData?.user?.email || !userData?.user?.id) {
+      if (!userData?.user?.id) {
         window.location.href = '/login'
         return
       }
 
+      // 🔐 Profil prüfen – falls nicht vorhanden, anlegen aus user_metadata
+      const { data: existingProfile, error: profileFetchError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userData.user.id)
+        .single()
+
+      if (!existingProfile) {
+        const { email, user_metadata } = userData.user
+        const { username, firstName, lastName } = user_metadata || {}
+
+        const { error: profileInsertError } = await supabase.from('profiles').insert({
+          id: userData.user.id,
+          email,
+          username,
+          firstName,
+          lastName,
+        })
+
+        if (profileInsertError) {
+          console.error('Profil konnte nicht gespeichert werden:', profileInsertError)
+        }
+      }
+
+      // 🧾 Profil-Name holen
       const { data: profile } = await supabase
         .from('profiles')
-        .select('vorname, nachname')
+        .select('firstName, lastName')
         .eq('id', userData.user.id)
         .single()
 
       if (profile) {
-        setUserName(`${profile.vorname} ${profile.nachname}`)
+        setUserName(`${profile.firstName} ${profile.lastName}`)
       }
 
+      // 💾 Klickdaten holen
       const { data: clickData, error } = await supabase
         .from('clicks')
         .select('*')
@@ -66,85 +90,54 @@ export default function DashboardPage() {
     fetchData()
   }, [])
 
-  const handleGiftcardTest = async () => {
-    try {
-      const res = await fetch('/api/redeem-gift-card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'lohmannmax2003@gmail.com',
-          value: 5,
-          utid: 'U591998' // Amazon.de 5€ – gültig
-        })
-      })
-
-      const result = await res.json()
-      alert(result.success
-        ? `🎉 Gutschein erfolgreich bestellt!\nCode: ${result.code}`
-        : `❌ Fehler: ${JSON.stringify(result.error)}`)
-    } catch (err: any) {
-      alert(`❌ API-Fehler beim Einlösen:\n${err.message}`)
-    }
-  }
-
   return (
-    <>
-      <div className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
-        <div className="max-w-7xl mx-auto space-y-10">
-          <h1 className="text-2xl sm:text-3xl font-bold text-center">
-            Willkommen im Dashboard, <span className="text-orange-500">{userName}</span>
-          </h1>
+    <div className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
+      <div className="max-w-7xl mx-auto space-y-10">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center">
+          Willkommen im Dashboard, <span className="text-orange-500">{userName}</span>
+        </h1>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm sm:text-base text-[#003b5b]">Bestätigtes Guthaben</p>
-              <p className="text-2xl sm:text-3xl font-bold text-green-600">
-                {confirmedReward.toFixed(2)} €
-              </p>
-              <button
-                onClick={() => window.location.href = '/einloesen'}
-                className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded w-full"
-              >
-                Prämie einlösen
-              </button>
-            </div>
-
-            <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm sm:text-base text-[#003b5b]">Vorgemerktes Guthaben</p>
-              <p className="text-2xl sm:text-3xl font-bold text-yellow-500">
-                {totalReward.toFixed(2)} €
-              </p>
-              <button
-                onClick={() => window.location.href = '/verlauf'}
-                className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded w-full"
-              >
-                Offene Teilnahmen
-              </button>
-            </div>
-
-            <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-              <p className="text-sm sm:text-base text-[#003b5b]">Prämienverlauf</p>
-              <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-                {clicks.length}
-              </p>
-              <button
-                onClick={() => window.location.href = '/verlauf'}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
-              >
-                Prämienverlauf
-              </button>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
+            <p className="text-sm sm:text-base text-[#003b5b]">Bestätigtes Guthaben</p>
+            <p className="text-2xl sm:text-3xl font-bold text-green-600">
+              {confirmedReward.toFixed(2)} €
+            </p>
+            <button
+              onClick={() => window.location.href = '/einloesen'}
+              className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded w-full"
+            >
+              Prämie einlösen
+            </button>
           </div>
 
-          <div className="text-center pt-10">
+          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
+            <p className="text-sm sm:text-base text-[#003b5b]">Vorgemerktes Guthaben</p>
+            <p className="text-2xl sm:text-3xl font-bold text-yellow-500">
+              {totalReward.toFixed(2)} €
+            </p>
             <button
-              onClick={handleGiftcardTest}
-              className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl shadow w-full max-w-xs mx-auto"
+              onClick={() => window.location.href = '/verlauf'}
+              className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded w-full"
             >
-              🎁 Test-Gutschein bestellen (5 € Amazon)
+              Offene Teilnahmen
+            </button>
+          </div>
+
+          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
+            <p className="text-sm sm:text-base text-[#003b5b]">Prämienverlauf</p>
+            <p className="text-2xl sm:text-3xl font-bold text-blue-600">
+              {clicks.length}
+            </p>
+            <button
+              onClick={() => window.location.href = '/verlauf'}
+              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+            >
+              Prämienverlauf
             </button>
           </div>
         </div>
-      </div>   </>
+      </div>
+    </div>
   )
 }

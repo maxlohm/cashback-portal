@@ -35,12 +35,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f9fafa] px-4 sm:px-6 py-12">
-      <div className="w-full max-w-sm bg-white border border-blue-100 rounded-xl shadow-lg p-6 sm:p-8 space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f3e6] px-4 sm:px-6 py-12">
+      <div className="w-full max-w-sm bg-[#f1e8cc] rounded-xl shadow p-6 sm:p-8 space-y-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center text-[#003b5b]">🔐 Login</h1>
 
         <input
-          className="w-full border border-blue-300 p-2 rounded text-sm"
+          className="w-full border border-gray-300 p-2 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
           type="email"
           placeholder="E-Mail"
           value={email}
@@ -49,7 +49,7 @@ export default function LoginPage() {
 
         {!isResetting && (
           <input
-            className="w-full border border-blue-300 p-2 rounded text-sm"
+            className="w-full border border-gray-300 p-2 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
             type="password"
             placeholder="Passwort"
             value={password}
@@ -59,26 +59,26 @@ export default function LoginPage() {
 
         {!isResetting ? (
           <button
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm font-medium"
+            className="w-full bg-[#003b5b] text-white py-2 rounded hover:bg-[#005b91] text-sm font-medium transition"
             onClick={handleLogin}
           >
             Einloggen
           </button>
         ) : (
           <button
-            className="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600 text-sm font-medium"
+            className="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600 text-sm font-medium transition"
             onClick={handlePasswordReset}
           >
             Passwort zurücksetzen
           </button>
         )}
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        {message && <p className="text-green-600 text-sm">{message}</p>}
+        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        {message && <p className="text-green-600 text-sm text-center">{message}</p>}
 
         <div className="text-center">
           <button
-            className="mt-2 text-blue-600 hover:underline text-sm"
+            className="mt-2 text-[#003b5b] hover:underline text-sm"
             onClick={() => setIsResetting(!isResetting)}
           >
             {isResetting ? 'Zurück zum Login' : 'Passwort vergessen?'}
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm">
           Noch kein Konto?{' '}
-          <a href="/register" className="text-blue-600 hover:underline">
+          <a href="/register" className="text-[#003b5b] underline hover:text-[#005b91]">
             Jetzt registrieren
           </a>
         </p>

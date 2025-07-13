@@ -11,7 +11,6 @@ export default function AGBPage() {
           Allgemeine Geschäftsbedingungen
         </h1>
         <p className="text-center sm:text-left text-sm sm:text-base">
-          <strong>Gültig ab:</strong> Juni 2025
         </p>
 
         <div className="space-y-8 text-sm sm:text-base leading-relaxed">
@@ -90,7 +89,6 @@ export default function AGBPage() {
               <a href="mailto:info@bonus-nest.de" className="text-blue-600 underline break-all">
                 info@bonus-nest.de
               </a><br />
-              Telefon: 0157 35106870
             </p>
           </section>
         </div>
