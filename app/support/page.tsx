@@ -1,6 +1,7 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic' // verhindert SSG/SSR und erlaubt useSearchParams
+
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
@@ -60,7 +61,6 @@ export default function SupportPage() {
     const target = e.target
     const name = target.name
     const value = target.value
-
     const isCheckbox = target instanceof HTMLInputElement && target.type === 'checkbox'
     const checked = isCheckbox ? target.checked : undefined
 
