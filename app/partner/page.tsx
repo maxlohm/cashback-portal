@@ -59,9 +59,14 @@ export default function PartnerPage() {
           </Link>
         </div> */}
 
-        <div className="text-center text-gray-600 italic">
-          Interesse an einer Kooperation? Schreib uns über das Kontaktformular.
-        </div>
+       <div className="text-center">
+  <Link
+    href="/support?type=Kooperationsanfrage"
+    className="inline-block bg-yellow-500 text-black font-semibold py-3 px-6 rounded-xl hover:bg-yellow-600 transition"
+  >
+    Jetzt kostenlos Partner werden
+  </Link>
+</div>
       </section>
     </div>
   )
