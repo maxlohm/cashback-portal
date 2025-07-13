@@ -88,9 +88,9 @@ export default function Header() {
       </div>
 
       {/* Header-Inhalte */}
-      <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-6 sm:py-10 gap-4 sm:gap-6">
+      <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
         {/* Logo */}
-        <div className="w-40 sm:w-44 md:w-56">
+        <div className="w-36 sm:w-40 md:w-44">
           <Link href="/">
             <Image
               src="/Bonus-Nest_1024px.png"
@@ -105,7 +105,7 @@ export default function Header() {
         </div>
 
         {/* Schriftzug */}
-        <div className="w-60 sm:w-96 md:w-[480px] lg:w-[520px]">
+        <div className="w-52 sm:w-80 md:w-[360px] lg:w-[400px]">
           <Image
             src="/Logo_Schrift.png"
             alt="Bonus-Nest Schriftzug"
@@ -117,8 +117,8 @@ export default function Header() {
           />
         </div>
 
-        {/* Maus */}
-        <div className="w-40 sm:w-44 md:w-56 -mt-2 sm:-mt-4">
+        {/* Maus – wird auf Mobilgeräten ausgeblendet */}
+        <div className="hidden sm:block w-36 md:w-44 -mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"
             alt="Bonus-Nest Maus"

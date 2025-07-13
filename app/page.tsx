@@ -35,15 +35,15 @@ export default function VersicherungenPage() {
   }
 
   return (
-    <>
+    <div className="mt-0 p-0">
       {/* Banner oben */}
-      <div className="w-full">
+      <div className="w-full max-w-none mx-auto p-0">
         <Image
           src="/bannerrichtig.png"
           alt="Versicherungsangebote Banner"
-          width={1440}
+          width={1920}
           height={300}
-          className="w-full h-auto object-cover"
+          className="w-full h-auto object-cover block"
           priority
         />
       </div>
@@ -130,6 +130,6 @@ export default function VersicherungenPage() {
           </div>
         </div>
       </main>
-    </>
+    </div>
   )
 }

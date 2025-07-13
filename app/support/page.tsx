@@ -3,6 +3,7 @@
 import Header from '../components/header'
 import Footer from '../components/footer'
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
 
 export default function SupportPage() {
@@ -18,11 +19,19 @@ export default function SupportPage() {
 
   const [errors, setErrors] = useState<{ consent?: string }>({})
   const [loggedIn, setLoggedIn] = useState(false)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser()
       const user = data?.user
+
+      const requestedType = searchParams.get('type')
+
+      setFormData((prev) => ({
+        ...prev,
+        requestType: requestedType || 'Sonstiges',
+      }))
 
       if (user) {
         setLoggedIn(true)
@@ -35,12 +44,13 @@ export default function SupportPage() {
           email: user.email || '',
           firstName: first || '',
           lastName: last?.join(' ') || '',
+          requestType: requestedType || 'Sonstiges',
         }))
       }
     }
 
     fetchUser()
-  }, [])
+  }, [searchParams])
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target

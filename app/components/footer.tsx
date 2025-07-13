@@ -18,7 +18,7 @@ export default function Footer() {
           <ul className="space-y-1">
             <li><Link href="/login" className="hover:underline">🔐 Login</Link></li>
             <li><Link href="/register" className="hover:underline">➕ Registrieren</Link></li>
-            <li><Link href="/partner" className="hover:underline">🤝 Partner</Link></li>
+            <li><Link href="/partner" className="hover:underline">🤝 Werde Partner</Link></li>
           </ul>
         </div>
 
