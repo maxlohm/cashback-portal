@@ -9,7 +9,7 @@ export default function PartnerPage() {
       {/* Headerbild */}
       <div className="relative w-full h-96">
         <Image
-          src="/Partner.png"
+          src="/partner.png"
           alt="Partner werden bei Bonus-Nest"
           layout="fill"
           objectFit="cover"
