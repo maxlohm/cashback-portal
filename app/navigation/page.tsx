@@ -10,7 +10,7 @@ const categories = [
   { name: 'Mobilfunk', href: '/mobilfunk' },
   { name: 'Gratis', href: '/gratis' },
   { name: 'Shopping', href: '/shopping' },
-  { name: 'Vergleiche', href: '/vergleiche' },
+  { name: 'Vergleiche', href: '/preisvergleich' },
 ]
 
 export default function KategorieNavigation() {

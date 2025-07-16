@@ -58,15 +58,15 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
-              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">🏠 Angebote</Link>
+              <Link href="/" className="block px-4 py-2 hover:bg-gray-100"> Angebote</Link>
               {!loadingAuth && loggedIn && (
                 <>
-                  <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">👤 Mein Profil</Link>
-                  <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">📊 Dashboard</Link>
+                  <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">Mein Profil</Link>
+                  <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</Link>
                 </>
               )}
-              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">🛟 Support</Link>
-              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">❓ FAQ</Link>
+              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">Support</Link>
+              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">FAQ</Link>
               {!loadingAuth && (
                 loggedIn ? (
                   <button
@@ -77,8 +77,8 @@ export default function Header() {
                   </button>
                 ) : (
                   <>
-                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">🔐 Login</Link>
-                    <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">➕ Registrieren</Link>
+                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">Login</Link>
+                    <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">Registrieren</Link>
                   </>
                 )
               )}

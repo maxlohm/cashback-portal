@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../utils/supabaseClient'
-import { offers } from '../../utils/offers'
+import { supabase } from '@/utils/supabaseClient'
+import { offers } from '@/utils/offers'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 
 interface Click {
   id: string
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [clicks, setClicks] = useState<Click[]>([])
   const [totalReward, setTotalReward] = useState<number>(0)
   const [confirmedReward, setConfirmedReward] = useState<number>(0)
+  const [rewardByOffer, setRewardByOffer] = useState<{ name: string; value: number }[]>([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,8 +28,7 @@ export default function DashboardPage() {
         return
       }
 
-      // 🔐 Profil prüfen – falls nicht vorhanden, anlegen aus user_metadata
-      const { data: existingProfile, error: profileFetchError } = await supabase
+      const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', userData.user.id)
@@ -37,20 +38,15 @@ export default function DashboardPage() {
         const { email, user_metadata } = userData.user
         const { username, firstName, lastName } = user_metadata || {}
 
-        const { error: profileInsertError } = await supabase.from('profiles').insert({
+        await supabase.from('profiles').insert({
           id: userData.user.id,
           email,
           username,
           firstName,
           lastName,
         })
-
-        if (profileInsertError) {
-          console.error('Profil konnte nicht gespeichert werden:', profileInsertError)
-        }
       }
 
-      // 🧾 Profil-Name holen
       const { data: profile } = await supabase
         .from('profiles')
         .select('firstName, lastName')
@@ -61,8 +57,7 @@ export default function DashboardPage() {
         setUserName(`${profile.firstName} ${profile.lastName}`)
       }
 
-      // 💾 Klickdaten holen
-      const { data: clickData, error } = await supabase
+      const { data: clickData } = await supabase
         .from('clicks')
         .select('*')
         .eq('user_id', userData.user.id)
@@ -80,10 +75,17 @@ export default function DashboardPage() {
 
         setTotalReward(unconfirmedRewards.reduce((sum, val) => sum + val, 0))
         setConfirmedReward(confirmedRewards.reduce((sum, val) => sum + val, 0))
-      }
 
-      if (error) {
-        console.error('Fehler beim Laden:', error)
+        const offerMap: { [key: string]: number } = {}
+        clickData.forEach((click) => {
+          const offer = offers.find((o) => o.id === click.offer_id)
+          if (offer) {
+            offerMap[offer.name] = (offerMap[offer.name] || 0) + (offer.reward || 0)
+          }
+        })
+
+        const chartData = Object.entries(offerMap).map(([name, value]) => ({ name, value }))
+        setRewardByOffer(chartData)
       }
     }
 
@@ -91,50 +93,76 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#f9fafa] text-[#003b5b] px-4 py-10">
-      <div className="max-w-7xl mx-auto space-y-10">
-        <h1 className="text-2xl sm:text-3xl font-bold text-center">
-          Willkommen im Dashboard, <span className="text-orange-500">{userName}</span>
-        </h1>
+    <div className="min-h-screen bg-[#f7f3e6] text-[#003b5b] px-4 py-10">
+      <div className="max-w-5xl mx-auto space-y-12">
+        <div className="text-center">
+          <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">
+            Willkommen im Bonus-Nest 🪺
+          </h1>
+          <p className="text-lg sm:text-xl font-medium">
+            Hallo <span className="text-orange-600 font-bold">{userName}</span>, schön, dass du da bist!
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-            <p className="text-sm sm:text-base text-[#003b5b]">Bestätigtes Guthaben</p>
-            <p className="text-2xl sm:text-3xl font-bold text-green-600">
-              {confirmedReward.toFixed(2)} €
-            </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm text-[#003b5b] font-medium mb-1">✅ Bestätigtes Guthaben</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-green-600">
+                {confirmedReward.toFixed(2)} €
+              </p>
+            </div>
             <button
               onClick={() => window.location.href = '/einloesen'}
-              className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded w-full"
+              className="mt-6 bg-green-700 hover:bg-green-800 text-white text-sm px-4 py-2 rounded-xl transition"
             >
               Prämie einlösen
             </button>
           </div>
 
-          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-            <p className="text-sm sm:text-base text-[#003b5b]">Vorgemerktes Guthaben</p>
-            <p className="text-2xl sm:text-3xl font-bold text-yellow-500">
-              {totalReward.toFixed(2)} €
-            </p>
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm text-[#003b5b] font-medium mb-1">⏳ Vorgemerktes Guthaben</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-yellow-600">
+                {totalReward.toFixed(2)} €
+              </p>
+            </div>
             <button
               onClick={() => window.location.href = '/verlauf'}
-              className="mt-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded w-full"
+              className="mt-6 bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded-xl transition"
             >
               Offene Teilnahmen
             </button>
           </div>
 
-          <div className="bg-[#d0f0f7] border border-blue-200 p-6 rounded-xl shadow text-center">
-            <p className="text-sm sm:text-base text-[#003b5b]">Prämienverlauf</p>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-              {clicks.length}
-            </p>
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm text-[#003b5b] font-medium mb-1">📜 Prämienverlauf</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-blue-600">
+                {clicks.length}
+              </p>
+            </div>
             <button
               onClick={() => window.location.href = '/verlauf'}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
+              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl transition"
             >
-              Prämienverlauf
+              Verlauf anzeigen
             </button>
+          </div>
+        </div>
+
+        <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">🔎 Belohnungen nach Angeboten</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rewardByOffer}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

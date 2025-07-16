@@ -16,9 +16,9 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-2">Dein Bonus-Nest-Konto</h4>
           <ul className="space-y-1">
-            <li><Link href="/login" className="hover:underline">🔐 Login</Link></li>
-            <li><Link href="/register" className="hover:underline">➕ Registrieren</Link></li>
-            <li><Link href="/partner" className="hover:underline">🤝 Werde Partner</Link></li>
+            <li><Link href="/login" className="hover:underline">Login</Link></li>
+            <li><Link href="/register" className="hover:underline">Registrieren</Link></li>
+            <li><Link href="/partner" className="hover:underline">Werde Partner</Link></li>
           </ul>
         </div>
 

@@ -66,7 +66,7 @@ export default function VersicherungenPage() {
             />
             <div className="flex flex-col items-center gap-5">
               <div className="bg-[#ca4b24] text-white px-8 py-3 text-xl font-bold rounded-lg min-w-[160px] text-center">
-                20 €
+                20 €
               </div>
               <button
                 onClick={() =>
@@ -91,11 +91,14 @@ export default function VersicherungenPage() {
             />
             <div className="flex flex-col items-center gap-5">
               <div className="bg-[#ca4b24] text-white px-8 py-3 text-xl font-bold rounded-lg min-w-[160px] text-center">
-                20 €
+                20 €
               </div>
               <button
                 onClick={() =>
-                  handleAffiliateClick('https://a.partner-versicherung.de/click.php?partner_id=191406&ad_id=1618&deep=kfz-versicherung', 'kfz-versicherung')
+                  handleAffiliateClick(
+                    'https://a.partner-versicherung.de/click.php?partner_id=191406&ad_id=1618&deep=kfz-versicherung',
+                    'kfz-versicherung'
+                  )
                 }
                 className="bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] text-center transition"
               >
@@ -116,11 +119,41 @@ export default function VersicherungenPage() {
             />
             <div className="flex flex-col items-center gap-5">
               <div className="bg-[#ca4b24] text-white px-8 py-3 text-xl font-bold rounded-lg min-w-[160px] text-center">
-                20 €
+                20 €
               </div>
               <button
                 onClick={() =>
                   handleAffiliateClick('https://www.financeads.net/tc.php?t=77500C276463218B', 'verivox-kredit')
+                }
+                className="bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] text-center transition"
+              >
+                Jetzt sichern!
+              </button>
+            </div>
+          </div>
+
+          {/* 🧠 CHECK24 DSL */}
+          <div className="w-full md:w-[48%] bg-white flex flex-col md:flex-row items-center gap-6 p-6 rounded-lg border border-gray-200 shadow hover:shadow-lg transition-all">
+            <div className="flex-shrink-0 flex items-center justify-center bg-white" style={{ width: 300, height: 250 }}>
+              <img
+                src="https://a.check24.net/misc/view.php?pid=1153771&aid=82&cat=4"
+                width={300}
+                height={250}
+                className="rounded"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                alt="CHECK24 DSL Banner"
+              />
+            </div>
+            <div className="flex flex-col items-center gap-5">
+              <div className="bg-[#ca4b24] text-white px-8 py-3 text-xl font-bold rounded-lg min-w-[160px] text-center">
+                20 €
+              </div>
+              <button
+                onClick={() =>
+                  handleAffiliateClick(
+                    'https://a.check24.net/misc/click.php?pid=1153771&aid=82&deep=dsl-anbieterwechsel&cat=4',
+                    'check24-dsl'
+                  )
                 }
                 className="bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] text-center transition"
               >

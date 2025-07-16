@@ -2,94 +2,172 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabaseClient'
-import Header from '../components/header'
-import Footer from '../components/footer'
+import { offers } from '@/utils/offers'
+import Link from 'next/link'
 
-interface GiftCard {
+interface Click {
   id: string
-  type: string
-  value: number
-  code: string | null
-  issued_at: string
+  offer_id: string
+  clicked_at: string
+  redeemed: boolean
+  confirmed?: boolean
 }
 
-export default function VerlaufPage() {
-  const [giftCards, setGiftCards] = useState<GiftCard[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
-  const [visibleCodes, setVisibleCodes] = useState<Record<string, boolean>>({})
+export default function DashboardPage() {
+  const [userName, setUserName] = useState<string>('')
+  const [clicks, setClicks] = useState<Click[]>([])
+  const [totalReward, setTotalReward] = useState<number>(0)
+  const [confirmedReward, setConfirmedReward] = useState<number>(0)
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: userData } = await supabase.auth.getUser()
+      if (!userData?.user?.id) {
+        window.location.href = '/login'
+        return
+      }
 
-      if (userData?.user) {
-        setUserId(userData.user.id)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userData.user.id)
+        .single()
 
-        const { data, error } = await supabase
-          .from('gift_cards')
-          .select('*')
-          .eq('user_id', userData.user.id)
-          .order('issued_at', { ascending: false })
+      if (!existingProfile) {
+        const { email, user_metadata } = userData.user
+        const { username, firstName, lastName } = user_metadata || {}
 
-        if (!error && data) {
-          setGiftCards(data)
-        }
+        await supabase.from('profiles').insert({
+          id: userData.user.id,
+          email,
+          username,
+          firstName,
+          lastName,
+        })
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('firstName, lastName')
+        .eq('id', userData.user.id)
+        .single()
+
+      if (profile) {
+        setUserName(`${profile.firstName} ${profile.lastName}`)
+      }
+
+      const { data: clickData } = await supabase
+        .from('clicks')
+        .select('*')
+        .eq('user_id', userData.user.id)
+
+      if (clickData) {
+        setClicks(clickData)
+
+        const unconfirmedRewards = clickData
+          .filter((c) => !c.redeemed)
+          .map((c) => offers.find((o) => o.id === c.offer_id)?.reward || 0)
+
+        const confirmedRewards = clickData
+          .filter((c) => c.confirmed && !c.redeemed)
+          .map((c) => offers.find((o) => o.id === c.offer_id)?.reward || 0)
+
+        setTotalReward(unconfirmedRewards.reduce((sum, val) => sum + val, 0))
+        setConfirmedReward(confirmedRewards.reduce((sum, val) => sum + val, 0))
       }
     }
 
     fetchData()
   }, [])
 
-  const toggleCodeVisibility = (id: string) => {
-    setVisibleCodes((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
+  const sortedTimeline = clicks
+    .sort((a, b) => new Date(b.clicked_at).getTime() - new Date(a.clicked_at).getTime())
+    .slice(0, 7)
+    .map((click) => {
+      const offer = offers.find((o) => o.id === click.offer_id)
+      return {
+        id: click.id,
+        name: offer?.name || 'Unbekanntes Angebot',
+        reward: offer?.reward || 0,
+        date: new Date(click.clicked_at).toLocaleDateString(),
+        rawDate: click.clicked_at,
+      }
+    })
 
   return (
-    <>   
-      <main className="max-w-4xl mx-auto p-6 md:p-10 text-gray-800">
-        <h1 className="text-2xl font-bold mb-6">Eingelöste Prämien</h1>
-
-        <div className="overflow-x-auto rounded border border-blue-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#d0f0f7]">
-              <tr>
-                <th className="px-4 py-3 font-semibold text-[#003b5b]">Typ</th>
-                <th className="px-4 py-3 font-semibold text-[#003b5b]">Wert</th>
-                <th className="px-4 py-3 font-semibold text-[#003b5b]">Datum</th>
-                <th className="px-4 py-3 font-semibold text-[#003b5b]">Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              {giftCards.map((gc) => (
-                <tr key={gc.id} className="border-t border-blue-200 bg-white text-black">
-                  <td className="px-4 py-3">{gc.type}</td>
-                  <td className="px-4 py-3">{gc.value.toFixed(2)} €</td>
-                  <td className="px-4 py-3">{new Date(gc.issued_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    {visibleCodes[gc.id] ? (
-                      <span className="font-mono text-green-600">{gc.code}</span>
-                    ) : (
-                      <button
-                        onClick={() => toggleCodeVisibility(gc.id)}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Code anzeigen
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {giftCards.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center px-4 py-6 text-black bg-white">
-                    Noch keine Prämien eingelöst.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+    <div className="min-h-screen bg-[#f7f3e6] text-[#003b5b] px-4 py-10">
+      <div className="max-w-5xl mx-auto space-y-12">
+        <div className="text-center">
+          <h1 className="text-3xl sm:text-4xl font-extrabold mb-2">Willkommen im Bonus-Nest 🪺</h1>
+          <p className="text-lg sm:text-xl font-medium">
+            Hallo <span className="text-orange-600 font-bold">{userName}</span>, schön, dass du da bist!
+          </p>
         </div>
-      </main> 
-    </>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm font-medium mb-1">✅ Bestätigtes Guthaben</p>
+              <p className="text-3xl font-extrabold text-green-600">{confirmedReward.toFixed(2)} €</p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/einloesen'}
+              className="mt-6 bg-green-700 hover:bg-green-800 text-white text-sm px-4 py-2 rounded-xl"
+            >
+              Prämie einlösen
+            </button>
+          </div>
+
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm font-medium mb-1">⏳ Vorgemerktes Guthaben</p>
+              <p className="text-3xl font-extrabold text-yellow-600">{totalReward.toFixed(2)} €</p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/verlauf'}
+              className="mt-6 bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded-xl"
+            >
+              Offene Teilnahmen
+            </button>
+          </div>
+
+          <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6 flex flex-col justify-between">
+            <div>
+              <p className="text-sm font-medium mb-1">📜 Prämienverlauf</p>
+              <p className="text-3xl font-extrabold text-blue-600">{clicks.length}</p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/verlauf'}
+              className="mt-6 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-xl"
+            >
+              Verlauf anzeigen
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-[#f1e8cc] border border-[#d6c4a1] rounded-2xl shadow p-6">
+          <h2 className="text-xl font-semibold mb-6">🕒 Deine letzten Aktivitäten</h2>
+          <ol className="relative border-l-4 border-[#003b5b] pl-6">
+            {sortedTimeline.map((item, index) => (
+              <li key={item.id} className="mb-6 group">
+                <div className="absolute w-4 h-4 bg-[#003b5b] rounded-full -left-2 top-1.5 border-2 border-white"></div>
+                <div className="p-4 bg-white rounded-xl shadow hover:bg-[#fef9ec] transition">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-md">{item.name}</h3>
+                    <span className="text-sm text-green-700 font-semibold">+{item.reward.toFixed(2)} €</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">Am {item.date}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-6 text-center">
+            <Link href="/dashboard" className="inline-block bg-[#003b5b] hover:bg-[#002b45] text-white text-sm px-6 py-2 rounded-xl transition">
+              Zurück zum Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
