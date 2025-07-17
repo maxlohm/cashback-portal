@@ -84,12 +84,39 @@ export const offers: Offer[] = [
   category: 'kredit' // Oder 'finanzen', wenn du diese Kategorie verwendest
 },
 {
+  id: 'santander-bestcredit',
+  name: 'Santander BestCredit Ratenkredit',
+  description: 'Jetzt Santander Ratenkredit sichern und Prämie erhalten!',
+  reward: 20, // Passe die Prämie ggf. an
+  image: 'https://www.financeads.net/tb.php?t=77500V19318415B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C19318415B',
+  category: 'kredit', // Oder 'finanzen', falls passend für deine Logik
+},
+{
+  id: 'comdirect-girokonto',
+  name: 'comdirect Girokonto',
+  description: 'Jetzt comdirect Girokonto eröffnen und Prämie sichern!',
+  reward: 20, // Passe die Prämie ggf. an
+  image: 'https://www.financeads.net/tb.php?t=77500V87024050B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C87024050B',
+  category: 'kredit', // oder 'kredit', je nach deinem Filter – meist 'finanzen' für Konten
+},
+{
+  id: 'commerzbank-geschaeftskonto',
+  name: 'Commerzbank Geschäftskonto',
+  description: 'Jetzt Commerzbank Geschäftskonto Klassik eröffnen und Prämie sichern!',
+  reward: 20, // Passe die Prämie bei Bedarf an
+  image: 'https://www.financeads.net/tb.php?t=77500V304064420B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C304064420B',
+  category: 'finanzen', // Für Filter in der Finanzübersicht
+},
+{
     id: 'advanzia-mastercard',
     name: 'Advanzia Mastercard Gold',
     description: 'Kostenlose Advanzia Mastercard Gold beantragen & Prämie sichern!',
     reward: 20, // Passe den Wert ggf. an
     image: 'https://www.financeads.net/tb.php?t=77500V13814265B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C13814265B',
-    category: 'kredit',
+    category: 'kredit', 
   }
 ]
