@@ -7,6 +7,7 @@ import Image from 'next/image'
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false)
+  const [isPartner, setIsPartner] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(true)
   const menuRef = useRef(null)
@@ -14,9 +15,23 @@ export default function Header() {
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser()
-      if (data?.user) {
+      const user = data?.user
+
+      if (user) {
         setLoggedIn(true)
+
+        // Partnerstatus abfragen
+        const { data: partner } = await supabase
+          .from('partners')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (partner) {
+          setIsPartner(true)
+        }
       }
+
       setLoadingAuth(false)
     }
 
@@ -58,11 +73,14 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
-              <Link href="/" className="block px-4 py-2 hover:bg-gray-100"> Angebote</Link>
+              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">Angebote</Link>
               {!loadingAuth && loggedIn && (
                 <>
                   <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">Mein Profil</Link>
                   <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</Link>
+                  {isPartner && (
+                    <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">Partner-Dashboard</Link>
+                  )}
                 </>
               )}
               <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">Support</Link>
