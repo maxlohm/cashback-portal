@@ -20,18 +20,8 @@ export default function AlleAngebotePage() {
     checkUser()
   }, [])
 
-  const handleAffiliateClick = async (affiliateUrl: string, offerId: string) => {
-    if (!user) {
-      router.push('/login')
-    } else {
-      await supabase.from('clicks').insert({
-        user_id: user.id,
-        offer_id: offerId,
-        clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
-      window.open(affiliateUrl, '_blank')
-    }
+  const handleGoToDetailPage = (offerId: string) => {
+    router.push(`/angebot/${offerId}`) // 🔁 Hier nur zur Detailseite
   }
 
   return (
@@ -61,7 +51,7 @@ export default function AlleAngebotePage() {
               description={offer.description}
               reward={offer.reward}
               image={offer.image}
-              onClick={() => handleAffiliateClick(offer.affiliateUrl, offer.id)}
+              onClick={() => handleGoToDetailPage(offer.id)} // ✅ Navigation zur Detailseite
             />
           ))}
         </div>

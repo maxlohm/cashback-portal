@@ -53,7 +53,6 @@ export default function FinanzenPage() {
       {/* Inhalt */}
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-10">
         <h1 className="text-3xl font-bold text-[#003b5b] mb-4">
-          
         </h1>
         <div className="flex flex-wrap gap-6 justify-start">
           {offers
