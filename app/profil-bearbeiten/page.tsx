@@ -24,13 +24,13 @@ export default function ProfilBearbeitenPage() {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('vorname, nachname')
-          .eq('id', data.user.id)
+          .select('firstName, lastName')
+          .eq('user_id', data.user.id)
           .single()
 
         if (profile) {
-          setVorname(profile.vorname || '')
-          setNachname(profile.nachname || '')
+          setVorname(profile.firstName || '')
+          setNachname(profile.lastName || '')
         }
       } else {
         window.location.href = '/login'

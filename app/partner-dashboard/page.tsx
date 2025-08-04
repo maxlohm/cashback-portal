@@ -1,148 +1,175 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
 
-type Lead = {
-  id: string
-  offer_id: string
-  clicked_at: string
-  confirmed: boolean
-  amount: number
-}
-
-type FilterType = 'all' | 'today' | 'week' | 'month'
-
-export default function PartnerDashboard() {
-  const [authorized, setAuthorized] = useState<boolean | null>(null)
-  const [leads, setLeads] = useState<Lead[]>([])
+export default function PartnerDashboardPage() {
+  const [user, setUser] = useState<any>(null)
+  const [leads, setLeads] = useState<any[]>([])
+  const [filteredLeads, setFilteredLeads] = useState<any[]>([])
+  const [filter, setFilter] = useState<'today' | 'week' | 'month' | 'all'>('today')
+  const [isPartner, setIsPartner] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FilterType>('all')
-  const router = useRouter()
 
   useEffect(() => {
-    const checkAccessAndLoadData = async () => {
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      if (userError || !userData?.user) {
-        router.push('/login')
+    const fetchUserAndData = async () => {
+      const { data: userData } = await supabase.auth.getUser()
+      const currentUser = userData?.user
+
+      if (!currentUser) {
+        window.location.href = '/login'
         return
       }
 
-      const userId = userData.user.id
+      setUser(currentUser)
 
-      const { data: partnerData } = await supabase
+      const { data: partner } = await supabase
         .from('partners')
         .select('id')
-        .eq('id', userId)
-        .single()
+        .eq('id', currentUser.id)
+        .maybeSingle()
 
-      if (!partnerData) {
-        setAuthorized(false)
-        router.push('/login')
+      if (!partner) {
+        window.location.href = '/login'
         return
       }
 
-      setAuthorized(true)
+      setIsPartner(true)
 
-      const { data: leadsData, error: leadsError } = await supabase
-        .from('leads')
+      const { data: leadsData } = await supabase
+        .from('clicks')
         .select('*')
-        .eq('partner_id', userId)
+        .eq('partner_id', currentUser.id)
 
-      if (leadsError) {
-        setError('Fehler beim Laden der Leads.')
-      } else {
-        setLeads(leadsData || [])
-      }
-
+      setLeads(leadsData || [])
       setLoading(false)
     }
 
-    checkAccessAndLoadData()
-  }, [router])
+    fetchUserAndData()
+  }, [])
 
-  if (loading) return <div className="p-10 text-center">🔄 Lade Dashboard...</div>
-  if (!authorized) return null
+  useEffect(() => {
+    if (!leads.length) return
 
-  // 🧠 FILTER-LOGIK
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfWeek = new Date(startOfToday)
-  startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay()) // Sonntag als Wochenstart
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const now = new Date()
 
-  const filteredLeads = leads.filter((lead) => {
-    const clickedAt = new Date(lead.clicked_at)
-    if (filter === 'today') return clickedAt >= startOfToday
-    if (filter === 'week') return clickedAt >= startOfWeek
-    if (filter === 'month') return clickedAt >= startOfMonth
-    return true
-  })
+    const filtered = leads.filter((lead) => {
+      const leadDate = new Date(lead.clicked_at)
+      const diffTime = now.getTime() - leadDate.getTime()
 
-  const confirmedLeads = filteredLeads.filter((lead) => lead.confirmed)
-  const sumConfirmed = confirmedLeads.reduce((sum, lead) => sum + (lead.amount || 0), 0)
+      switch (filter) {
+        case 'today':
+          return leadDate.toDateString() === now.toDateString()
+        case 'week':
+          return diffTime < 7 * 24 * 60 * 60 * 1000
+        case 'month':
+          return (
+            leadDate.getMonth() === now.getMonth() &&
+            leadDate.getFullYear() === now.getFullYear()
+          )
+        case 'all':
+        default:
+          return true
+      }
+    })
+
+    setFilteredLeads(filtered)
+  }, [filter, leads])
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString()
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-4">📊 Partner-Dashboard</h1>
-      <p className="mb-6 text-gray-800">Hier sehen nur bestätigte Partner ihre Statistiken.</p>
+    <>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#003b5b] text-center mb-6">
+          👥 Partner-Dashboard
+        </h1>
 
-      {/* FILTER DROPDOWN */}
-      <div className="mb-6">
-        <label className="mr-2 font-medium">Filter:</label>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as FilterType)}
-          className="border px-3 py-1 rounded"
-        >
-          <option value="all">Alle Leads</option>
-          <option value="today">Heute</option>
-          <option value="week">Diese Woche</option>
-          <option value="month">Diesen Monat</option>
-        </select>
-      </div>
-
-      {/* ZÄHLER */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <div className="p-4 bg-white rounded shadow border">
-          <div className="text-sm text-gray-500">👥 Leads ({filter})</div>
-          <div className="text-xl font-bold">{filteredLeads.length}</div>
-        </div>
-        <div className="p-4 bg-white rounded shadow border">
-          <div className="text-sm text-gray-500">✅ Bestätigt</div>
-          <div className="text-xl font-bold">{confirmedLeads.length}</div>
-        </div>
-        <div className="p-4 bg-white rounded shadow border">
-          <div className="text-sm text-gray-500">💶 Betrag</div>
-          <div className="text-xl font-bold">{sumConfirmed} €</div>
-        </div>
-      </div>
-
-      {/* FEHLERANZEIGE */}
-      {error && <p className="text-red-600">{error}</p>}
-
-      {/* LEAD-LISTE */}
-      <div>
-        <h2 className="text-xl font-semibold mb-2">🎯 Leads</h2>
-        {filteredLeads.length === 0 ? (
-          <p>Keine Leads vorhanden.</p>
+        {loading ? (
+          <p className="text-center text-gray-600">Daten werden geladen…</p>
         ) : (
-          filteredLeads.map((lead) => (
-            <div key={lead.id} className="border p-4 mb-4 rounded bg-white shadow-sm">
-              <p><strong>Lead-ID:</strong> {lead.id}</p>
-              <p><strong>Offer:</strong> {lead.offer_id}</p>
-              <p><strong>Geklickt am:</strong> {new Date(lead.clicked_at).toLocaleString()}</p>
-              <p>
-                <strong>Bestätigt:</strong>{' '}
-                {lead.confirmed ? <span className="text-green-600">✔ Ja</span> : <span className="text-red-600">❌ Nein</span>}
-              </p>
-              <p><strong>Betrag:</strong> {lead.amount} €</p>
+          <>
+            <div className="flex justify-center gap-3 flex-wrap mb-8">
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                  filter === 'today' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
+                }`}
+                onClick={() => setFilter('today')}
+              >
+                Heute
+              </button>
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                  filter === 'week' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
+                }`}
+                onClick={() => setFilter('week')}
+              >
+                Woche
+              </button>
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                  filter === 'month' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
+                }`}
+                onClick={() => setFilter('month')}
+              >
+                Monat
+              </button>
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                  filter === 'all' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
+                }`}
+                onClick={() => setFilter('all')}
+              >
+                Alle
+              </button>
             </div>
-          ))
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-center">
+              <div className="bg-white p-4 rounded-lg shadow border">
+                <p className="text-sm text-gray-600">Gefiltert</p>
+                <p className="text-xl font-bold text-[#003b5b]">{filteredLeads.length}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow border">
+                <p className="text-sm text-gray-600">Gesamt</p>
+                <p className="text-xl font-bold text-[#003b5b]">{leads.length}</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow border">
+              <h2 className="text-lg font-semibold text-[#003b5b] mb-4">📋 Lead-Übersicht</h2>
+              <div className="overflow-auto">
+                <table className="min-w-full text-sm text-left border">
+                  <thead>
+                    <tr className="bg-[#f0fbff] border-b">
+                      <th className="px-4 py-2">Offer-ID</th>
+                      <th className="px-4 py-2">Datum</th>
+                      <th className="px-4 py-2">Eingelöst</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map((lead, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-4 py-2">{lead.offer_id}</td>
+                        <td className="px-4 py-2">{formatDate(lead.clicked_at)}</td>
+                        <td className="px-4 py-2">
+                          {lead.redeemed ? '✅ Ja' : '⏳ Nein'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredLeads.length === 0 && (
+                  <p className="text-center text-sm text-gray-500 py-4">
+                    Keine Leads im gewählten Zeitraum.
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
         )}
-      </div>
-    </div>
+      </main>
+    </>
   )
 }

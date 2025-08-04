@@ -84,7 +84,7 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
-          <address className="not-italic space-y-1">
+          <address className="not-italic space-y-1">  
             <p>Bonus-Nest<br />Khashayar Dehghani</p>
             <a
               href="mailto:info@bonus-nest.de"
