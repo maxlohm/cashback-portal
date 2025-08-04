@@ -1,42 +1,31 @@
-// app/api/catalogs/route.ts
-export const runtime = 'nodejs'
+'use client'
 
-import { NextResponse } from 'next/server'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/utils/supabaseClient'
 
-export async function GET() {
-  const username = process.env.TANGO_USERNAME || 'QAPlatform2'
-  const password = process.env.TANGO_PASSWORD || 'apYPfT6HNONpDRUj3CLGWYt7gvIHONpDRUYPfT6Hj'
-  const base64 = Buffer.from(`${username}:${password}`).toString('base64')
+export default function EinloesenPage() {
+  const [user, setUser] = useState<any>(null)
 
-  try {
-    const res = await fetch('https://integration-api.tangocard.com/raas/v2/choiceProducts', {
-      method: 'GET',
-      headers: {
-        Authorization: `Basic ${base64}`,
-        Accept: 'application/json',
-      },
-      cache: 'no-store',
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      return NextResponse.json({ error: 'Tango API-Fehler', detail: text }, { status: res.status })
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        window.location.href = '/login'
+      } else {
+        setUser(data.user)
+      }
     }
 
-    const data = await res.json()
+    checkUser()
+  }, [])
 
-    const filtered = data.choiceProducts?.filter((p: any) =>
-      Array.isArray(p.countries) &&
-      p.countries.includes('DE')
-    ).map((p: any) => ({
-      brandName: p.rewardName,
-      sku: p.utid,
-      image: p.imageUrl || '/logo.png',
-      minValue: p.minValue || 500,
-    })) || []
+  if (!user) return null
 
-    return NextResponse.json({ choiceProducts: filtered })
-  } catch (error) {
-    return NextResponse.json({ error: 'Serverfehler', detail: String(error) }, { status: 500 })
-  }
+  return (
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">🎁 Prämie einlösen</h1>
+      <p className="text-gray-700 mb-4">Hier kannst du dein Guthaben für Gutscheine einlösen.</p>
+      {/* Weitere UI wie Auswahlfelder, Betrag etc. */}
+    </div>
+  )
 }
