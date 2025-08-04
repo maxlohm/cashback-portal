@@ -2,82 +2,86 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/utils/supabaseClient'
 import { offers } from '@/utils/offers'
-import Image from 'next/image'
+import { supabase } from '@/utils/supabaseClient'
 
-export default function AngebotsDetailPage() {
-  const [user, setUser] = useState<any>(null)
-  const [offer, setOffer] = useState<any>(null)
-  const params = useParams()
+export default function OfferDetailPage() {
+  const { id } = useParams()
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const offer = offers.find(o => o.id === id)
 
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser()
-      if (data?.user) setUser(data.user)
+      if (!data?.user) {
+        router.push('/login')
+      } else {
+        setUser(data.user)
+      }
     }
-
     getUser()
-
-    const id = params?.id as string
-    const foundOffer = offers.find((o) => o.id === decodeURIComponent(id))
-    setOffer(foundOffer)
-  }, [params])
+  }, [router])
 
   const handleClick = async () => {
-    if (!user) {
-      router.push('/login')
-    } else {
-      await supabase.from('clicks').insert({
+    if (!user || !offer) return
+
+    const partner_id = localStorage.getItem('partner_ref')
+
+    const { error } = await supabase.from('leads').insert([
+      {
         user_id: user.id,
         offer_id: offer.id,
         clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
+        confirmed: false,
+        partner_id: partner_id ?? null,
+      },
+    ])
+
+    if (error) {
+      console.error('❌ Fehler beim Speichern des Klicks:', error)
+    } else {
       window.open(offer.affiliateUrl, '_blank')
     }
   }
 
   if (!offer) {
-    return (
-      <div className="text-center text-red-600 font-semibold text-lg mt-10">
-        ❌ Angebot nicht gefunden. (ID: {params?.id?.toString()})
-      </div>
-    )
+    return <p>Angebot nicht gefunden</p>
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-      <h1 className="text-3xl font-bold">{offer.name}</h1>
+    <div className="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-8">
+      {/* Deal-Bild */}
+      <div className="flex justify-center">
+        <img
+          src={offer.image}
+          alt={offer.name || 'Angebot'}
+          className="rounded-lg shadow-md"
+          style={{ maxWidth: 500 }}
+        />
+      </div>
 
-      <Image
-        src={offer.image}
-        alt={offer.name}
-        width={1000}
-        height={50}
-        className="rounded-xl mx-auto"
-      />
-
-      <p className="text-lg text-gray-700">{offer.description}</p>
-
-      {offer.terms && offer.terms.length > 0 && (
-        <div className="bg-gray-100 p-6 rounded-xl shadow-sm">
-          <h2 className="text-xl font-semibold mb-3">Teilnahmebedingungen</h2>
-          <ul className="list-disc list-inside text-gray-800 space-y-1">
-            {offer.terms.map((term: string, index: number) => (
+      {/* Teilnahmebedingungen */}
+      {offer.terms && (
+        <div className="bg-gray-100 p-6 rounded-lg border">
+          <h2 className="text-lg font-semibold mb-4">Teilnahmebedingungen</h2>
+          <ul className="list-disc list-inside space-y-2 text-sm text-gray-800">
+            {offer.terms.map((term, index) => (
               <li key={index}>{term}</li>
             ))}
           </ul>
         </div>
       )}
 
-      <button
-        onClick={handleClick}
-        className="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-6 py-3 rounded-xl transition w-full sm:w-auto"
-      >
-        Jetzt Prämie sichern
-      </button>
+      {/* Button */}
+      <div className="text-center">
+        <button
+          onClick={handleClick}
+          className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded transition-all"
+        >
+          Jetzt Prämie sichern
+        </button>
+      </div>
     </div>
   )
 }

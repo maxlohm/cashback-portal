@@ -15,13 +15,15 @@ export default function AlleAngebotePage() {
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser()
-      if (data?.user) setUser(data.user)
+      if (data?.user) {
+        setUser(data.user)
+      }
     }
     checkUser()
   }, [])
 
   const handleGoToDetailPage = (offerId: string) => {
-    router.push(`/angebot/${offerId}`) // 🔁 Hier nur zur Detailseite
+    router.push(`/angebot/${offerId}`)
   }
 
   return (
@@ -51,7 +53,7 @@ export default function AlleAngebotePage() {
               description={offer.description}
               reward={offer.reward}
               image={offer.image}
-              onClick={() => handleGoToDetailPage(offer.id)} // ✅ Navigation zur Detailseite
+              onClick={() => handleGoToDetailPage(offer.id)} // ✅ Detailseite aufrufen
             />
           ))}
         </div>
