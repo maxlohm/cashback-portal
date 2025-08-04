@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/utils/supabaseClient'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false)
@@ -11,6 +12,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(true)
   const menuRef = useRef(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     const checkUser = async () => {
@@ -20,7 +22,6 @@ export default function Header() {
       if (user) {
         setLoggedIn(true)
 
-        // Partnerstatus abfragen
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
@@ -36,7 +37,9 @@ export default function Header() {
     }
 
     checkUser()
+  }, [pathname])
 
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         menuRef.current &&

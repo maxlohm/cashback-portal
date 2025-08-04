@@ -18,7 +18,7 @@ export default function LoginPage() {
     if (error) {
       setError('Login fehlgeschlagen. Bitte prüfe deine Eingaben.')
     } else {
-      router.push('/dashboard')
+      router.push('/')
     }
   }
 

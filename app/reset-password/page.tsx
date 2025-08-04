@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
 import Header from '../components/header'
 import Footer from '../components/footer'
@@ -9,6 +10,7 @@ export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('')
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const router = useRouter()
 
   const handleReset = async () => {
     setError('')
@@ -24,8 +26,9 @@ export default function ResetPasswordPage() {
     if (error) {
       setError('Fehler beim Zurücksetzen des Passworts.')
     } else {
-      setSuccess('✅ Passwort wurde erfolgreich geändert.')
+      setSuccess('✅ Passwort wurde erfolgreich geändert. Du wirst gleich weitergeleitet …')
       setNewPassword('')
+      setTimeout(() => router.push('/login'), 2500)
     }
   }
 
