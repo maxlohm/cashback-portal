@@ -7,7 +7,7 @@ import type { Metadata } from 'next'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Cashback-Portal | Bonus-Nest',
+  title: 'Prämien-Portal | Bonus-Nest',
   description: 'Verdiene Geld durch Registrierungen bei Partnern',
   robots: 'index, follow',
 }
