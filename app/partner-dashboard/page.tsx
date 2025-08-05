@@ -11,37 +11,41 @@ export default function PartnerDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [clicks, setClicks] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUserAndData = async () => {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+      const { data, error: userError } = await supabase.auth.getUser()
 
-      if (!user) {
+      if (userError || !data?.user) {
         router.push('/login')
         return
       }
 
-      setUser(user)
+      const currentUser = data.user
+      setUser(currentUser)
 
-      const { data: partnerData } = await supabase
+      const { data: partnerData, error: partnerError } = await supabase
         .from('partners')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .single()
 
-      if (!partnerData) {
+      if (partnerError || !partnerData) {
         router.push('/login')
         return
       }
 
-      const { data: clickData } = await supabase
+      const { data: clickData, error: clickError } = await supabase
         .from('clicks')
         .select('*')
-        .eq('partner_id', user.id)
+        .eq('partner_id', currentUser.id)
         .order('clicked_at', { ascending: false })
+
+      if (clickError) {
+        setError('Fehler beim Laden der Daten.')
+        return
+      }
 
       setClicks(clickData || [])
       setLoading(false)
@@ -51,6 +55,7 @@ export default function PartnerDashboardPage() {
   }, [])
 
   if (loading) return <p className="p-4">Lade Dashboard...</p>
+  if (error) return <p className="p-4 text-red-500">{error}</p>
 
   const totalLeads = clicks.length
   const confirmedDeals = clicks.filter((c) => c.amount > 0)
@@ -62,20 +67,9 @@ export default function PartnerDashboardPage() {
       <h1 className="text-2xl font-bold mb-6">Partner Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-gray-500 text-sm mb-1">Leads insgesamt</p>
-          <p className="text-3xl font-bold">{totalLeads}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-gray-500 text-sm mb-1">Abgeschlossene Deals</p>
-          <p className="text-3xl font-bold">{confirmedCount}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow p-4">
-          <p className="text-gray-500 text-sm mb-1">Provisionssumme</p>
-          <p className="text-3xl font-bold">{confirmedAmount.toFixed(2)} €</p>
-        </div>
+        <StatBox label="Leads insgesamt" value={totalLeads} />
+        <StatBox label="Abgeschlossene Deals" value={confirmedCount} />
+        <StatBox label="Provisionssumme" value={`${confirmedAmount.toFixed(2)} €`} />
       </div>
 
       <div className="bg-white rounded-xl shadow p-4">
@@ -109,6 +103,15 @@ export default function PartnerDashboardPage() {
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function StatBox({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="bg-white rounded-xl shadow p-4">
+      <p className="text-gray-500 text-sm mb-1">{label}</p>
+      <p className="text-3xl font-bold">{value}</p>
     </div>
   )
 }
