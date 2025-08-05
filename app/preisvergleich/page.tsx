@@ -41,7 +41,7 @@ export default function PreisvergleichPage() {
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-6 justify-start">
           {offers
-            .filter((offer: Offer) => offer.category === 'vergleich')
+            .filter((offer: Offer) => offer.categories.includes('vergleiche'))
             .map((offer: Offer) => (
               <DealCard
                 key={offer.id}

@@ -42,10 +42,9 @@ export default function FinanzenPage() {
         <h1 className="text-3xl font-bold text-[#003b5b] mb-4"></h1>
         <div className="flex flex-wrap gap-6 justify-start">
           {offers
-            .filter(
-              (offer: Offer) =>
-                offer.category === 'kredit' ||
-                offer.category === 'finanzen'
+            .filter((offer: Offer) =>
+              offer.categories.includes('kredit') ||
+              offer.categories.includes('finanzen')
             )
             .map((offer: Offer) => (
               <DealCard
@@ -54,8 +53,8 @@ export default function FinanzenPage() {
                 description={offer.description}
                 reward={offer.reward}
                 image={offer.image}
-                offerId={offer.id}               // ✅ hinzugefügt
-                url={offer.affiliateUrl}         // ✅ hinzugefügt
+                offerId={offer.id}
+                url={offer.affiliateUrl}
               />
             ))}
         </div>
