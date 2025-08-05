@@ -13,6 +13,7 @@ type DealCardProps = {
   image: string
   offerId: string
   url: string
+  onClick?: () => void
 }
 
 // Komponente zur Darstellung eines Angebots (Deal)
@@ -23,6 +24,7 @@ export default function DealCard({
   image,
   offerId,
   url,
+  onClick,
 }: DealCardProps) {
   const router = useRouter()
 
@@ -45,8 +47,11 @@ export default function DealCard({
         url: trackedUrl,
       })
 
-      // Optional: direkte Weiterleitung zum Affiliate-Link
-      // window.open(trackedUrl, '_blank')
+      if (onClick) {
+        onClick()
+      } else {
+        window.open(trackedUrl, '_blank')
+      }
     } catch (err) {
       console.error('Fehler beim Tracken des Klicks:', err)
     }
