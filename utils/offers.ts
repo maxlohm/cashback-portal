@@ -1,4 +1,4 @@
-// utils/offers.tsx
+// utils/offers.ts
 
 export type Offer = {
   id: string
@@ -14,23 +14,23 @@ export type Offer = {
 export const offers: Offer[] = [
   {
     id: 'gothaer-zahn',
-    name: '',
-    description: '',
+    name: 'Gothaer Zahnzusatzversicherung',
+    description: 'Jetzt abschließen & bis zu 40 € Prämie sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V191135896B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C191135896B',
     category: 'versicherung',
     terms: [
       'Schließe eine Zahnzusatzversicherung ab.',
-      'Erhalte 15 € von Bonus-Nest auf dein Prämienkonto für den gültigen Abschluss.',
-      'Bei Abschluss des Tarifs Duo 100 erhältst du zusätzlich eine kostenlose elektrische Zahnbürste im Wert von ca. 40 €.'
+      'Erhalte 15 € von Bonus-Nest auf dein Prämienkonto.',
+      'Bei Duo 100 gibt es zusätzlich eine Zahnbürste im Wert von ca. 40 €.'
     ]
   },
   {
     id: 'kfz-versicherung',
-    name: '',
-    description: '',
-    reward: 20,
+    name: 'KFZ-Versicherung wechseln',
+    description: '50 € sichern für den Wechsel deiner Autoversicherung!',
+    reward: 50,
     image: 'https://a.partner-versicherung.de/view.php?partner_id=191406&ad_id=1618',
     affiliateUrl: 'https://a.partner-versicherung.de/click.php?partner_id=191406&ad_id=1618&deep=kfz-versicherung',
     category: 'versicherung',
@@ -42,8 +42,8 @@ export const offers: Offer[] = [
   },
   {
     id: 'verivox-kredit',
-    name: '',
-    description: '',
+    name: 'Verivox Kreditvergleich',
+    description: 'Jetzt Kredit vergleichen & 20 € Prämie sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V276463218B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C276463218B',
@@ -51,23 +51,22 @@ export const offers: Offer[] = [
   },
   {
     id: 'check24-dsl',
-    name: '',
-    description: '',
-    reward: 20,
+    name: 'CHECK24 DSL-Vergleich',
+    description: 'DSL wechseln & doppelt sparen + Prämie sichern!',
+    reward: 30,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=82&cat=4',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=82&deep=dsl-anbieterwechsel&cat=4',
     category: 'vergleich',
     terms: [
       'Jetzt DSL-Tarife über CHECK24 vergleichen und doppelt profitieren:',
       '✔ 30 € Prämie für deinen Abschluss',
-      '✔ Bis zu 90 € Bonus & 265 € Cashback je nach Tarif',
-      'Tipp: Keine günstigen Angebote? Cookies löschen und neu starten.'
+      '✔ Bis zu 90 € Bonus & 265 € Cashback je nach Tarif'
     ]
   },
   {
     id: 'check24-gas',
-    name: '',
-    description: '',
+    name: 'CHECK24 Gasvergleich',
+    description: 'Gasvertrag wechseln & 20 € sichern!',
     reward: 20,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=315&cat=3',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=315&deep=gasanbieter-wechseln&cat=3',
@@ -75,25 +74,21 @@ export const offers: Offer[] = [
   },
   {
     id: 'check24-strom',
-    name: '',
-    description: '',
-    reward: 20,
+    name: 'CHECK24 Stromvergleich',
+    description: 'Bis zu 300 € Bonus + 30 € Prämie sichern!',
+    reward: 30,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=305&cat=1',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=305&deep=stromanbieter-wechseln&cat=1',
     category: 'vergleich',
     terms: [
-      'Die Aktion gilt für einen gültigen Anbieterwechsel zu einem neuen Stromversorger.',
-      'Der neue Tarif muss eine Mindestvertragslaufzeit von 3 Monaten aufweisen.',
-      '30 € Prämie für den erfolgreichen Anbieterwechsel über den Aktionslink – die Gutschrift erfolgt auf dein Bonus-Nest-Prämienkonto.',
-      'Bis zu 300 € Neukundenbonus werden vom jeweiligen Stromanbieter gewährt – gemäß dessen Bedingungen.',
-      'Zusätzlich bis zu 40 € Cashback erhältst du ggf. von Preisvergleich.de, abhängig vom gewählten Tarif und Anbieter.',
-      'Die Auszahlung der einzelnen Prämien erfolgt separat durch Bonus-Nest, den Stromanbieter und ggf. Preisvergleich.de.'
+      '30 € Prämie für den erfolgreichen Anbieterwechsel über den Aktionslink – Gutschrift auf dein Bonus-Nest-Konto.',
+      'Bis zu 300 € Neukundenbonus durch den Anbieter möglich.'
     ]
   },
   {
     id: 'check24-handy',
-    name: '',
-    description: '',
+    name: 'CHECK24 Handytarife',
+    description: 'Handytarif finden & 20 € Prämie sichern!',
     reward: 20,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=171&cat=7',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=171&deep=handytarife&cat=7',
@@ -101,8 +96,8 @@ export const offers: Offer[] = [
   },
   {
     id: 'check24-bank',
-    name: '',
-    description: '',
+    name: 'C24 Bankkonto',
+    description: 'Jetzt Bankkonto eröffnen & 20 € Prämie sichern!',
     reward: 20,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=342&cat=14',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=342&deep=c24bank&cat=14',
@@ -110,24 +105,17 @@ export const offers: Offer[] = [
   },
   {
     id: 'santander-bestcredit',
-    name: '',
-    description: '',
-    reward: 20,
+    name: 'Santander BestCredit',
+    description: 'Tagesgeld sichern mit 2,3 % Zinsen + 15 € Prämie!',
+    reward: 15,
     image: 'https://www.financeads.net/tb.php?t=77500V19318415B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C19318415B',
-    category: 'kredit',
-    terms: [
-      'Die Aktion gilt ausschließlich für Neukunden, die noch kein Santander-Produkt besitzen.',
-      'Eröffne ein kostenloses Tagesgeldkonto bei Santander.',
-      'Erhalte 2,3 % Zinsen auf dein Guthaben.',
-      'Nach der erfolgreichen Kontoeröffnung wird eine Prämie von 15 € auf dein Bonus-Nest-Prämienkonto gutgeschrieben – dies erfolgt wenige Tage nach der Eröffnung.',
-      'Für eventuelle Nachbuchungsanfragen halte bitte die Order-Nummer bereit. Diese findest du links am Rand im Antragsdokument und beginnt mit OS-.'
-    ]
+    category: 'kredit'
   },
   {
     id: 'comdirect-girokonto',
-    name: '',
-    description: '',
+    name: 'comdirect Girokonto',
+    description: 'Jetzt kostenloses Girokonto eröffnen & 20 € sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V87024050B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C87024050B',
@@ -135,8 +123,8 @@ export const offers: Offer[] = [
   },
   {
     id: 'commerzbank-geschaeftskonto',
-    name: '',
-    description: '',
+    name: 'Commerzbank Geschäftskonto',
+    description: 'Jetzt Geschäftskonto eröffnen & 20 € Prämie sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V304064420B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C304064420B',
@@ -144,8 +132,8 @@ export const offers: Offer[] = [
   },
   {
     id: 'advanzia-mastercard',
-    name: '',
-    description: '',
+    name: 'Advanzia Mastercard GOLD',
+    description: 'Kostenlose Kreditkarte beantragen & 20 € Prämie sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V13814265B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C13814265B',

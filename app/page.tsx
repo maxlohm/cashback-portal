@@ -1,3 +1,4 @@
+// app/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -47,14 +48,39 @@ export default function AlleAngebotePage() {
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="flex flex-wrap gap-6 justify-start">
           {offers.map((offer: Offer) => (
-            <DealCard
+            <div
               key={offer.id}
-              name={offer.name}
-              description={offer.description}
-              reward={offer.reward}
-              image={offer.image}
-              onClick={() => handleGoToDetailPage(offer.id)} // ✅ Detailseite aufrufen
-            />
+              className="w-full md:w-[48%] flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-lg border shadow hover:shadow-lg transition-all"
+            >
+              {/* Bildbereich */}
+              <div
+                style={{ width: 300, height: 250 }}
+                className="flex-shrink-0 flex items-center justify-center bg-white"
+              >
+                <img
+                  src={offer.image}
+                  alt={offer.name}
+                  width={300}
+                  height={250}
+                  loading="lazy"
+                  style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
+                  className="rounded"
+                />
+              </div>
+
+              {/* Infobereich */}
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="bg-[#ca4b24] text-white px-6 py-2 rounded-lg text-lg font-bold min-w-[120px]">
+                  {offer.reward} €
+                </div>
+                <button
+                  onClick={() => handleGoToDetailPage(offer.id)}
+                  className="cursor-pointer bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-6 py-2 rounded-lg text-base font-medium min-w-[120px] transition"
+                >
+                  Jetzt sichern!
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </main>

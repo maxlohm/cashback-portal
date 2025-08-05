@@ -6,7 +6,8 @@ import { offers } from '@/utils/offers'
 import { supabase } from '@/utils/supabaseClient'
 
 export default function OfferDetailPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : ''
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const offer = offers.find(o => o.id === id)
@@ -26,17 +27,16 @@ export default function OfferDetailPage() {
   const handleClick = async () => {
     if (!user || !offer) return
 
-    const partner_id = localStorage.getItem('partner_ref')
+    const partner_id = localStorage.getItem('partner_id')
 
-    const { error } = await supabase.from('leads').insert([
-      {
-        user_id: user.id,
-        offer_id: offer.id,
-        clicked_at: new Date().toISOString(),
-        confirmed: false,
-        partner_id: partner_id ?? null,
-      },
-    ])
+    const { error } = await supabase.from('clicks').insert({
+      user_id: user.id,
+      offer_id: offer.id,
+      clicked_at: new Date().toISOString(),
+      redeemed: false,
+      amount: offer.reward,
+      partner_id: partner_id ?? null,
+    })
 
     if (error) {
       console.error('❌ Fehler beim Speichern des Klicks:', error)
@@ -46,7 +46,7 @@ export default function OfferDetailPage() {
   }
 
   if (!offer) {
-    return <p>Angebot nicht gefunden</p>
+    return <p className="text-center text-gray-600 mt-10">Angebot nicht gefunden.</p>
   }
 
   return (

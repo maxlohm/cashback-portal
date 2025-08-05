@@ -1,175 +1,114 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabaseClient'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
 
 export default function PartnerDashboardPage() {
-  const [user, setUser] = useState<any>(null)
-  const [leads, setLeads] = useState<any[]>([])
-  const [filteredLeads, setFilteredLeads] = useState<any[]>([])
-  const [filter, setFilter] = useState<'today' | 'week' | 'month' | 'all'>('today')
-  const [isPartner, setIsPartner] = useState(false)
+  const supabase = createClientComponentClient()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [clicks, setClicks] = useState<any[]>([])
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     const fetchUserAndData = async () => {
-      const { data: userData } = await supabase.auth.getUser()
-      const currentUser = userData?.user
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-      if (!currentUser) {
-        window.location.href = '/login'
+      if (!user) {
+        router.push('/login')
         return
       }
 
-      setUser(currentUser)
+      setUser(user)
 
-      const { data: partner } = await supabase
+      const { data: partnerData } = await supabase
         .from('partners')
-        .select('id')
-        .eq('id', currentUser.id)
-        .maybeSingle()
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
 
-      if (!partner) {
-        window.location.href = '/login'
+      if (!partnerData) {
+        router.push('/login')
         return
       }
 
-      setIsPartner(true)
-
-      const { data: leadsData } = await supabase
+      const { data: clickData } = await supabase
         .from('clicks')
         .select('*')
-        .eq('partner_id', currentUser.id)
+        .eq('partner_id', user.id)
+        .order('clicked_at', { ascending: false })
 
-      setLeads(leadsData || [])
+      setClicks(clickData || [])
       setLoading(false)
     }
 
     fetchUserAndData()
   }, [])
 
-  useEffect(() => {
-    if (!leads.length) return
+  if (loading) return <p className="p-4">Lade Dashboard...</p>
 
-    const now = new Date()
-
-    const filtered = leads.filter((lead) => {
-      const leadDate = new Date(lead.clicked_at)
-      const diffTime = now.getTime() - leadDate.getTime()
-
-      switch (filter) {
-        case 'today':
-          return leadDate.toDateString() === now.toDateString()
-        case 'week':
-          return diffTime < 7 * 24 * 60 * 60 * 1000
-        case 'month':
-          return (
-            leadDate.getMonth() === now.getMonth() &&
-            leadDate.getFullYear() === now.getFullYear()
-          )
-        case 'all':
-        default:
-          return true
-      }
-    })
-
-    setFilteredLeads(filtered)
-  }, [filter, leads])
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
-  }
+  const totalLeads = clicks.length
+  const confirmedDeals = clicks.filter((c) => c.amount > 0)
+  const confirmedCount = confirmedDeals.length
+  const confirmedAmount = confirmedDeals.reduce((sum, c) => sum + (c.amount || 0), 0)
 
   return (
-    <>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#003b5b] text-center mb-6">
-          👥 Partner-Dashboard
-        </h1>
+    <div className="p-4 md:p-8">
+      <h1 className="text-2xl font-bold mb-6">Partner Dashboard</h1>
 
-        {loading ? (
-          <p className="text-center text-gray-600">Daten werden geladen…</p>
-        ) : (
-          <>
-            <div className="flex justify-center gap-3 flex-wrap mb-8">
-              <button
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                  filter === 'today' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
-                }`}
-                onClick={() => setFilter('today')}
-              >
-                Heute
-              </button>
-              <button
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                  filter === 'week' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
-                }`}
-                onClick={() => setFilter('week')}
-              >
-                Woche
-              </button>
-              <button
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                  filter === 'month' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
-                }`}
-                onClick={() => setFilter('month')}
-              >
-                Monat
-              </button>
-              <button
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                  filter === 'all' ? 'bg-[#003b5b] text-white' : 'bg-white border-blue-300 text-[#003b5b]'
-                }`}
-                onClick={() => setFilter('all')}
-              >
-                Alle
-              </button>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow p-4">
+          <p className="text-gray-500 text-sm mb-1">Leads insgesamt</p>
+          <p className="text-3xl font-bold">{totalLeads}</p>
+        </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-center">
-              <div className="bg-white p-4 rounded-lg shadow border">
-                <p className="text-sm text-gray-600">Gefiltert</p>
-                <p className="text-xl font-bold text-[#003b5b]">{filteredLeads.length}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow border">
-                <p className="text-sm text-gray-600">Gesamt</p>
-                <p className="text-xl font-bold text-[#003b5b]">{leads.length}</p>
-              </div>
-            </div>
+        <div className="bg-white rounded-xl shadow p-4">
+          <p className="text-gray-500 text-sm mb-1">Abgeschlossene Deals</p>
+          <p className="text-3xl font-bold">{confirmedCount}</p>
+        </div>
 
-            <div className="bg-white p-6 rounded-xl shadow border">
-              <h2 className="text-lg font-semibold text-[#003b5b] mb-4">📋 Lead-Übersicht</h2>
-              <div className="overflow-auto">
-                <table className="min-w-full text-sm text-left border">
-                  <thead>
-                    <tr className="bg-[#f0fbff] border-b">
-                      <th className="px-4 py-2">Offer-ID</th>
-                      <th className="px-4 py-2">Datum</th>
-                      <th className="px-4 py-2">Eingelöst</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeads.map((lead, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="px-4 py-2">{lead.offer_id}</td>
-                        <td className="px-4 py-2">{formatDate(lead.clicked_at)}</td>
-                        <td className="px-4 py-2">
-                          {lead.redeemed ? '✅ Ja' : '⏳ Nein'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredLeads.length === 0 && (
-                  <p className="text-center text-sm text-gray-500 py-4">
-                    Keine Leads im gewählten Zeitraum.
-                  </p>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </main>
-    </>
+        <div className="bg-white rounded-xl shadow p-4">
+          <p className="text-gray-500 text-sm mb-1">Provisionssumme</p>
+          <p className="text-3xl font-bold">{confirmedAmount.toFixed(2)} €</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow p-4">
+        <h2 className="text-xl font-semibold mb-4">Lead-Verlauf</h2>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b">
+              <th className="py-2">Datum</th>
+              <th className="py-2">Angebot</th>
+              <th className="py-2">Betrag</th>
+              <th className="py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clicks.map((click) => (
+              <tr key={click.id} className="border-b">
+                <td className="py-2">{format(new Date(click.clicked_at), 'dd.MM.yyyy')}</td>
+                <td className="py-2">{click.offer_id}</td>
+                <td className="py-2">
+                  {click.amount ? `${click.amount.toFixed(2)} €` : '-'}
+                </td>
+                <td className="py-2">
+                  {click.amount && click.amount > 0
+                    ? click.redeemed
+                      ? 'Ausbezahlt'
+                      : 'Offen'
+                    : 'Unbestätigt'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

@@ -1,9 +1,16 @@
+'use client'
+
+import { trackClick } from '@/utils/trackClick'
+import { supabase } from '@/utils/supabaseClient'
+import { useRouter } from 'next/navigation'
+
 type DealCardProps = {
   name: string
   description: string
   reward: number
   image: string
-  onClick: () => void
+  offerId: string
+  url: string
 }
 
 export default function DealCard({
@@ -11,8 +18,29 @@ export default function DealCard({
   description,
   reward,
   image,
-  onClick,
+  offerId,
+  url,
 }: DealCardProps) {
+  const router = useRouter()
+
+  const handleClick = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    const trackedUrl = `${url}&subid=${user.id}|${offerId}`
+
+    await trackClick({
+      userId: user.id,
+      offerId,
+      amount: reward,
+      url: trackedUrl,
+    })
+  }
+
   return (
     <div className="w-full md:w-[48%] flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-lg border shadow hover:shadow-lg transition-all">
       {/* Bildbereich */}
@@ -39,7 +67,7 @@ export default function DealCard({
           {reward} €
         </div>
         <button
-          onClick={onClick}
+          onClick={handleClick}
           className="cursor-pointer bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] transition"
         >
           Jetzt sichern!
