@@ -15,14 +15,14 @@ export const offers: Offer[] = [
   {
     id: 'gothaer-zahn',
     name: 'Gothaer Zahnzusatzversicherung',
-    description: 'Jetzt abschließen & bis zu 40 € Prämie sichern!',
+    description: 'Jetzt 20 € & 40 € Prämie sichern!',
     reward: 20,
     image: 'https://www.financeads.net/tb.php?t=77500V191135896B',
     affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C191135896B',
     category: 'versicherung',
     terms: [
       'Schließe eine Zahnzusatzversicherung ab.',
-      'Erhalte 15 € von Bonus-Nest auf dein Prämienkonto.',
+      'Erhalte 20 € von Bonus-Nest auf dein Prämienkonto.',
       'Bei Duo 100 gibt es zusätzlich eine Zahnbürste im Wert von ca. 40 €.'
     ]
   },
@@ -41,15 +41,6 @@ export const offers: Offer[] = [
     ]
   },
   {
-    id: 'verivox-kredit',
-    name: 'Verivox Kreditvergleich',
-    description: 'Jetzt Kredit vergleichen & 20 € Prämie sichern!',
-    reward: 20,
-    image: 'https://www.financeads.net/tb.php?t=77500V276463218B',
-    affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C276463218B',
-    category: 'kredit'
-  },
-  {
     id: 'check24-dsl',
     name: 'CHECK24 DSL-Vergleich',
     description: 'DSL wechseln & doppelt sparen + Prämie sichern!',
@@ -66,8 +57,8 @@ export const offers: Offer[] = [
   {
     id: 'check24-gas',
     name: 'CHECK24 Gasvergleich',
-    description: 'Gasvertrag wechseln & 20 € sichern!',
-    reward: 20,
+    description: 'Gasvertrag wechseln & 10 € sichern!',
+    reward: 10,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=315&cat=3',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=315&deep=gasanbieter-wechseln&cat=3',
     category: 'vergleich'
@@ -75,21 +66,21 @@ export const offers: Offer[] = [
   {
     id: 'check24-strom',
     name: 'CHECK24 Stromvergleich',
-    description: 'Bis zu 300 € Bonus + 30 € Prämie sichern!',
-    reward: 30,
+    description: 'Bis zu 300 € Bonus + 10 € Prämie sichern!',
+    reward: 10,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=305&cat=1',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=305&deep=stromanbieter-wechseln&cat=1',
     category: 'vergleich',
     terms: [
-      '30 € Prämie für den erfolgreichen Anbieterwechsel über den Aktionslink – Gutschrift auf dein Bonus-Nest-Konto.',
+      '10 € Prämie für den erfolgreichen Anbieterwechsel über den Aktionslink – Gutschrift auf dein Bonus-Nest-Konto.',
       'Bis zu 300 € Neukundenbonus durch den Anbieter möglich.'
     ]
   },
   {
     id: 'check24-handy',
     name: 'CHECK24 Handytarife',
-    description: 'Handytarif finden & 20 € Prämie sichern!',
-    reward: 20,
+    description: 'Handytarif finden & 10 € Prämie sichern!',
+    reward: 10,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=171&cat=7',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=171&deep=handytarife&cat=7',
     category: 'vergleich'
@@ -97,46 +88,102 @@ export const offers: Offer[] = [
   {
     id: 'check24-bank',
     name: 'C24 Bankkonto',
-    description: 'Jetzt Bankkonto eröffnen & 20 € Prämie sichern!',
-    reward: 20,
+    description: 'Jetzt Bankkonto eröffnen & 25 € + 75 € Prämie sichern!',
+    reward: 25,
     image: 'https://a.check24.net/misc/view.php?pid=1153771&aid=342&cat=14',
     affiliateUrl: 'https://a.check24.net/misc/click.php?pid=1153771&aid=342&deep=c24bank&cat=14',
     category: 'kredit'
   },
   {
-    id: 'santander-bestcredit',
-    name: 'Santander BestCredit',
-    description: 'Tagesgeld sichern mit 2,3 % Zinsen + 15 € Prämie!',
-    reward: 15,
-    image: 'https://www.financeads.net/tb.php?t=77500V19318415B',
-    affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C19318415B',
-    category: 'kredit'
-  },
-  {
-    id: 'comdirect-girokonto',
-    name: 'comdirect Girokonto',
-    description: 'Jetzt kostenloses Girokonto eröffnen & 20 € sichern!',
-    reward: 20,
-    image: 'https://www.financeads.net/tb.php?t=77500V87024050B',
-    affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C87024050B',
-    category: 'kredit'
-  },
-  {
-    id: 'commerzbank-geschaeftskonto',
-    name: 'Commerzbank Geschäftskonto',
-    description: 'Jetzt Geschäftskonto eröffnen & 20 € Prämie sichern!',
-    reward: 20,
-    image: 'https://www.financeads.net/tb.php?t=77500V304064420B',
-    affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C304064420B',
-    category: 'finanzen'
-  },
-  {
-    id: 'advanzia-mastercard',
-    name: 'Advanzia Mastercard GOLD',
-    description: 'Kostenlose Kreditkarte beantragen & 20 € Prämie sichern!',
-    reward: 20,
-    image: 'https://www.financeads.net/tb.php?t=77500V13814265B',
-    affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C13814265B',
-    category: 'kredit'
-  }
+  id: 'santander-tagesgeld',
+  name: 'Santander Tagesgeld',
+  description: 'Kostenloses Tagesgeldkonto mit bis zu 2,30 % Zinsen p.a.',
+  reward: 15,
+  image: 'https://www.financeads.net/tb.php?t=77500V19399348B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C19399348B',
+  category: 'kredit',
+  terms: [
+    'Eröffne das kostenlose Santander Tagesgeldkonto.',
+    'Bis zu 2,30 % Zinsen p.a. – flexibel & ohne Mindestanlage.',
+    '15 € Prämie für deine Kontoeröffnung über Bonus-Nest.'
+  ]
+},
+{
+  id: 'comdirect-tagesgeld-plus',
+  name: 'comdirect Tagesgeld Plus',
+  description: 'Jetzt Tagesgeldkonto eröffnen & 15 € sichern!',
+  reward: 15,
+  image: 'https://www.financeads.net/tb.php?t=77500V870106582B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C870106582B',
+  category: 'kredit',
+  terms: [
+    'Eröffne ein Tagesgeld Plus Konto bei comdirect.',
+    '15 € Bonus-Nest Prämie nach erfolgreicher Kontoeröffnung.'
+  ]
+},
+{
+  id: 'comdirect-depot',
+  name: 'comdirect Depot',
+  description: 'Depot eröffnen & 30 € Prämie sichern!',
+  reward: 30,
+  image: 'https://www.financeads.net/tb.php?t=77500V87024087B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C87024087B',
+  category: 'kredit',
+  terms: [
+    'Jetzt Depot bei comdirect eröffnen.',
+    '30 € Prämie von Bonus-Nest nach erfolgreicher Eröffnung.'
+  ]
+},
+{
+  id: 'commerzbank-direktdepot',
+  name: 'Commerzbank DirektDepot',
+  description: 'DirektDepot eröffnen & 30 € sichern!',
+  reward: 30,
+  image: 'https://www.financeads.net/tb.php?t=77500V304089374T',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C304089374T',
+  category: 'kredit',
+  terms: [
+    'Jetzt das DirektDepot bei der Commerzbank eröffnen.',
+    '30 € Prämie von Bonus-Nest nach erfolgreicher Eröffnung.'
+  ]
+},
+{
+  id: 'commerzbank-topzinskonto',
+  name: 'Commerzbank Topzinskonto',
+  description: 'Topzinskonto eröffnen & 10 € Prämie sichern!',
+  reward: 10,
+  image: 'https://www.financeads.net/tb.php?t=77500V3040105286T',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C3040105286T',
+  category: 'kredit',
+  terms: [
+    'Eröffne das Topzinskonto Plus bei der Commerzbank.',
+    '10 € Prämie für deine Kontoeröffnung über Bonus-Nest.'
+  ]
+},
+{
+  id: 'partner-kreditkarte',
+  name: 'Kreditkarte mit 50 € Bonus',
+  description: '50 € Willkommensbonus für deine Kreditkarte!',
+  reward: 0,
+  image: 'https://a.partner-versicherung.de/view.php?partner_id=191406&ad_id=1574',
+  affiliateUrl: 'https://a.partner-versicherung.de/click.php?partner_id=191406&ad_id=1574&deep=kreditkarten',
+  category: 'kredit',
+  terms: [
+    'Beantrage eine Kreditkarte über den Aktionslink.',
+    '50 € Willkommensbonus direkt vom Anbieter (nicht über Bonus-Nest).'
+  ]
+},
+{
+  id: 'finanzguru',
+  name: 'Finanzguru',
+  description: 'Jetzt registrieren & 10 € Prämie sichern!',
+  reward: 10,
+  image: 'https://www.financeads.net/tb.php?t=77500V377273110B',
+  affiliateUrl: 'https://www.financeads.net/tc.php?t=77500C377273110B',
+  category: 'kredit',
+  terms: [
+    'Registriere dich kostenlos bei Finanzguru.',
+    '10 € Bonus-Nest Prämie nach erfolgreicher Registrierung.'
+  ]
+}
 ]

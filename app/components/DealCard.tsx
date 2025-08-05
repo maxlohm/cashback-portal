@@ -5,7 +5,6 @@ import { supabase } from '@/utils/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
-// Eigenschaften, die ein Deal erhalten soll
 type DealCardProps = {
   name: string
   description: string
@@ -16,7 +15,6 @@ type DealCardProps = {
   onClick?: () => void
 }
 
-// Komponente zur Darstellung eines Angebots (Deal)
 export default function DealCard({
   name,
   description,
@@ -58,8 +56,9 @@ export default function DealCard({
   }
 
   return (
-    <div className="w-full md:w-[48%] flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-xl border shadow hover:shadow-lg transition-all">
-      <div className="flex-shrink-0 bg-white flex items-center justify-center" style={{ width: 300, height: 250 }}>
+    <div className="w-full md:w-[48%] flex flex-col items-center gap-4 p-6 bg-white rounded-xl border shadow hover:shadow-lg transition-all">
+      {/* Bild oben, gleiche Höhe für alle */}
+      <div className="flex items-center justify-center w-full bg-white p-2" style={{ height: 250 }}>
         <Image
           src={image}
           alt={`Bild zu ${name}`}
@@ -69,19 +68,23 @@ export default function DealCard({
         />
       </div>
 
-      <div className="flex flex-col items-center gap-5 text-center">
+      {/* Text und Button mittig */}
+      <div className="flex flex-col items-center text-center gap-2 w-full">
         <h3 className="text-lg font-semibold text-[#003b5b]">{name}</h3>
         <p className="text-sm text-gray-600">{description}</p>
-        <div className="bg-[#ca4b24] text-white px-8 py-3 rounded-lg text-xl font-bold min-w-[160px]">
-          {reward} €
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
+          <div className="bg-[#ca4b24] text-white px-8 py-3 rounded-lg text-xl font-bold text-center min-w-[120px]">
+            {reward} €
+          </div>
+          <button
+            onClick={handleClick}
+            className="bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium transition min-w-[160px]"
+            aria-label={`Jetzt sichern für ${name}`}
+          >
+            Jetzt sichern!
+          </button>
         </div>
-        <button
-          onClick={handleClick}
-          className="cursor-pointer bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] transition"
-          aria-label={`Jetzt sichern für ${name}`}
-        >
-          Jetzt sichern!
-        </button>
       </div>
     </div>
   )
