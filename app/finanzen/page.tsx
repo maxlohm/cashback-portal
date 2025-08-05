@@ -20,20 +20,6 @@ export default function FinanzenPage() {
     checkUser()
   }, [])
 
-  const handleAffiliateClick = async (affiliateUrl: string, offerId: string) => {
-    if (!user) {
-      router.push('/login')
-    } else {
-      await supabase.from('clicks').insert({
-        user_id: user.id,
-        offer_id: offerId,
-        clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
-      window.open(affiliateUrl, '_blank')
-    }
-  }
-
   return (
     <>
       {/* Banner oben */}
@@ -47,13 +33,13 @@ export default function FinanzenPage() {
           priority
         />
       </div>
+
       {/* Navigation */}
       <KategorieNavigation />
 
       {/* Inhalt */}
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-10">
-        <h1 className="text-3xl font-bold text-[#003b5b] mb-4">
-        </h1>
+        <h1 className="text-3xl font-bold text-[#003b5b] mb-4"></h1>
         <div className="flex flex-wrap gap-6 justify-start">
           {offers
             .filter(
@@ -68,9 +54,8 @@ export default function FinanzenPage() {
                 description={offer.description}
                 reward={offer.reward}
                 image={offer.image}
-                onClick={() =>
-                  handleAffiliateClick(offer.affiliateUrl, offer.id)
-                }
+                offerId={offer.id}               // ✅ hinzugefügt
+                url={offer.affiliateUrl}         // ✅ hinzugefügt
               />
             ))}
         </div>

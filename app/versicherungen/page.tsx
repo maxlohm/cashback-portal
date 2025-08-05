@@ -20,20 +20,6 @@ export default function VersicherungenPage() {
     checkUser()
   }, [])
 
-  const handleAffiliateClick = async (affiliateUrl: string, offerId: string) => {
-    if (!user) {
-      router.push('/login')
-    } else {
-      await supabase.from('clicks').insert({
-        user_id: user.id,
-        offer_id: offerId,
-        clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
-      window.open(affiliateUrl, '_blank')
-    }
-  }
-
   return (
     <div className="mt-0 p-0">
       {/* Banner oben */}
@@ -63,7 +49,8 @@ export default function VersicherungenPage() {
                 description={offer.description}
                 reward={offer.reward}
                 image={offer.image}
-                onClick={() => handleAffiliateClick(offer.affiliateUrl, offer.id)}
+                offerId={offer.id} // ✅ hinzugefügt
+                url={offer.affiliateUrl} // ✅ hinzugefügt
               />
             ))}
         </div>

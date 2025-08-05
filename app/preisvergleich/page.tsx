@@ -20,20 +20,6 @@ export default function PreisvergleichPage() {
     checkUser()
   }, [])
 
-  const handleAffiliateClick = async (affiliateUrl: string, offerId: string) => {
-    if (!user) {
-      router.push('/login')
-    } else {
-      await supabase.from('clicks').insert({
-        user_id: user.id,
-        offer_id: offerId,
-        clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
-      window.open(affiliateUrl, '_blank')
-    }
-  }
-
   return (
     <>
       {/* Banner */}
@@ -47,8 +33,10 @@ export default function PreisvergleichPage() {
           priority
         />
       </div>
+
       {/* Navigation */}
       <KategorieNavigation />
+
       {/* Inhalt */}
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-6 justify-start">
@@ -61,7 +49,8 @@ export default function PreisvergleichPage() {
                 description={offer.description}
                 reward={offer.reward}
                 image={offer.image}
-                onClick={() => handleAffiliateClick(offer.affiliateUrl, offer.id)}
+                offerId={offer.id} // ✅ hinzugefügt
+                url={offer.affiliateUrl} // ✅ hinzugefügt
               />
             ))}
         </div>
