@@ -3,6 +3,7 @@
 import { trackClick } from '@/utils/trackClick'
 import { supabase } from '@/utils/supabaseClient'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 type DealCardProps = {
   name: string
@@ -24,38 +25,41 @@ export default function DealCard({
   const router = useRouter()
 
   const handleClick = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data, error } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (error || !data?.user) {
       router.push('/login')
       return
     }
 
+    const user = data.user
     const trackedUrl = `${url}&subid=${user.id}|${offerId}`
 
-    await trackClick({
-      userId: user.id,
-      offerId,
-      amount: reward,
-      url: trackedUrl,
-    })
+    try {
+      await trackClick({
+        userId: user.id,
+        offerId,
+        amount: reward,
+        url: trackedUrl,
+      })
+
+      // Optional: Seite neu laden oder redirect
+      // window.open(trackedUrl, '_blank')
+    } catch (err) {
+      console.error('Fehler beim Tracken des Klicks:', err)
+    }
   }
 
   return (
-    <div className="w-full md:w-[48%] flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-lg border shadow hover:shadow-lg transition-all">
+    <div className="w-full md:w-[48%] flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-xl border shadow hover:shadow-lg transition-all">
       {/* Bildbereich */}
-      <div
-        style={{ width: 300, height: 250 }}
-        className="flex-shrink-0 flex items-center justify-center bg-white"
-      >
-        <img
+      <div className="flex-shrink-0 bg-white flex items-center justify-center" style={{ width: 300, height: 250 }}>
+        <Image
           src={image}
-          alt={name}
+          alt={`Bild zu ${name}`}
           width={300}
           height={250}
-          loading="lazy"
-          style={{ objectFit: 'contain', maxWidth: '100%', maxHeight: '100%' }}
-          className="rounded"
+          className="object-contain rounded"
         />
       </div>
 
@@ -69,6 +73,7 @@ export default function DealCard({
         <button
           onClick={handleClick}
           className="cursor-pointer bg-[#ca4b24] hover:bg-[#a33d1e] text-white px-8 py-3 rounded-lg text-lg font-medium min-w-[160px] transition"
+          aria-label={`Jetzt sichern für ${name}`}
         >
           Jetzt sichern!
         </button>
