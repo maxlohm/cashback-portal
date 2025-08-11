@@ -45,7 +45,6 @@ export default function RegisterPage() {
       return
     }
 
-    // Prüfen, ob Benutzername oder E-Mail schon vorhanden ist
     const { data: existingUsers, error: fetchError } = await supabase
       .from('profiles')
       .select('id')
@@ -61,7 +60,6 @@ export default function RegisterPage() {
       return
     }
 
-    // Registrierung mit Supabase Auth
     const { error: signupError } = await supabase.auth.signUp({
       email,
       password,
@@ -71,14 +69,24 @@ export default function RegisterPage() {
           firstName,
           lastName,
         },
-        // Optional: automatische Weiterleitung nach Bestätigung
-        // emailRedirectTo: 'https://bonus-nest.de/dashboard'
       },
     })
 
     if (signupError) {
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
       return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      const refPartnerId = localStorage.getItem('ref_partner_id')
+
+      if (refPartnerId) {
+        await supabase.from('profiles').update({
+          partner_id: refPartnerId
+        }).eq('id', user.id)
+      }
     }
 
     setSuccess('✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail-Adresse über den Link in deinem Posteingang.')

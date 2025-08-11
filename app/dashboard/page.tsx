@@ -8,10 +8,12 @@ import { de } from 'date-fns/locale'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
-  const [pendingDeals, setPendingDeals] = useState<any[]>([])
-  const [confirmedDeals, setConfirmedDeals] = useState<any[]>([])
   const [dealHistory, setDealHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const [pendingAmount, setPendingAmount] = useState(0)
+  const [confirmedAmount, setConfirmedAmount] = useState(0)
+  const [availableAmount, setAvailableAmount] = useState(0)
 
   const router = useRouter()
 
@@ -28,30 +30,45 @@ export default function DashboardPage() {
 
       setUser(user)
 
-      const { data: pending } = await supabase
-        .from('clicks')
-        .select('amount')
+      // Guthaben aus View laden
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('v_user_balance')
+        .select('*')
         .eq('user_id', user.id)
-        .gt('amount', 0)
-        .eq('redeemed', false)
+        .single()
 
-      const { data: confirmed } = await supabase
-        .from('clicks')
-        .select('amount')
-        .eq('user_id', user.id)
-        .gt('amount', 0)
-        .eq('redeemed', true)
+      if (!balanceError && balanceData) {
+        setPendingAmount(balanceData.pending_amount || 0)
+        setConfirmedAmount(balanceData.confirmed_amount || 0)
+        setAvailableAmount(balanceData.available_to_redeem || 0)
+      }
 
+      // Historie aus Clicks & Leads
       const { data: history } = await supabase
         .from('clicks')
-        .select('clicked_at, offer_id, amount, redeemed')
+        .select('clicked_at, offer_id, id')
         .eq('user_id', user.id)
-        .gt('amount', 0)
         .order('clicked_at', { ascending: false })
 
-      setPendingDeals(pending || [])
-      setConfirmedDeals(confirmed || [])
-      setDealHistory(history || [])
+      const leadMap = new Map<string, any>()
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('click_id, confirmed, amount')
+
+      leads?.forEach((lead) => {
+        leadMap.set(lead.click_id, lead)
+      })
+
+      const enrichedHistory = history?.map((click) => {
+        const lead = leadMap.get(click.id)
+        return {
+          ...click,
+          amount: lead?.amount || 0,
+          redeemed: lead?.confirmed || false,
+        }
+      }) || []
+
+      setDealHistory(enrichedHistory)
       setIsLoading(false)
     }
 
@@ -68,49 +85,44 @@ export default function DashboardPage() {
 
   if (isLoading) return <div className="p-6">Lade Dashboard...</div>
 
-  const vorgemerktesGuthaben = pendingDeals.reduce((sum, d) => sum + d.amount, 0)
-  const bestaetigtesGuthaben = confirmedDeals.reduce((sum, d) => sum + d.amount, 0)
-  const abgeschlosseneDeals = pendingDeals.length + confirmedDeals.length
-
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Dein Dashboard</h1>
+    <div className="p-6 max-w-4xl mx-auto space-y-10">
+      <h1 className="text-3xl font-bold">Dein Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl shadow p-6">
+          <p className="text-gray-600 mb-1">Vorgemerktes Guthaben</p>
+          <p className="text-yellow-600 text-3xl font-semibold">
+            {formatCurrency(pendingAmount)}
+          </p>
+        </div>
         <div className="bg-white rounded-xl shadow p-6">
           <p className="text-gray-600 mb-1">Bestätigtes Guthaben</p>
           <p className="text-green-600 text-3xl font-semibold">
-            {formatCurrency(bestaetigtesGuthaben)}
+            {formatCurrency(confirmedAmount)}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow p-6">
-          <p className="text-gray-600 mb-1">Offenes Guthaben</p>
-          <p className="text-yellow-600 text-3xl font-semibold">
-            {formatCurrency(vorgemerktesGuthaben)}
+          <p className="text-gray-600 mb-1">Auszahlbar</p>
+          <p className="text-blue-600 text-3xl font-semibold">
+            {formatCurrency(availableAmount)}
           </p>
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">Deal-Statistiken</h2>
-        <p>Abgeschlossene Deals: {abgeschlosseneDeals}</p>
-        <p>Bestätigte Abschlüsse: {confirmedDeals.length}</p>
-        <p>Offene Abschlüsse: {pendingDeals.length}</p>
       </div>
 
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="text-xl font-bold mb-4">Abschlussverlauf</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Deal</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Betrag</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-gray-500 uppercase">Datum</th>
+                <th className="px-4 py-2 text-left text-gray-500 uppercase">Deal</th>
+                <th className="px-4 py-2 text-left text-gray-500 uppercase">Betrag</th>
+                <th className="px-4 py-2 text-left text-gray-500 uppercase">Status</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200">
               {dealHistory.map((deal, index) => (
                 <tr key={index}>
                   <td className="px-4 py-2">
@@ -123,6 +135,13 @@ export default function DashboardPage() {
                   <td className="px-4 py-2">{getStatusText(deal.redeemed)}</td>
                 </tr>
               ))}
+              {dealHistory.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
+                    Noch keine Deals abgeschlossen.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

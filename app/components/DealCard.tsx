@@ -26,18 +26,32 @@ export default function DealCard({
   const router = useRouter()
 
   const handleClick = async () => {
-    const { data, error } = await supabase.auth.getUser()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (error || !data?.user) {
+    if (error || !user) {
       router.push('/login')
       return
     }
 
-    if (onClick) {
-      onClick()
-    } else {
-      router.push(`/angebot/${offerId}`)
-    }
+    // Profil mit partner_id holen
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('partner_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const partnerId = profile?.partner_id || null
+
+    // Klick speichern
+    await supabase.from('clicks').insert({
+      user_id: user.id,
+      offer_id: offerId,
+      partner_id: partnerId,
+      clicked_at: new Date().toISOString(),
+    })
+
+    // Affiliate-Link öffnen
+    window.open(url, '_blank')
   }
 
   return (

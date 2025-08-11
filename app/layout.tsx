@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import Header from './components/header'
 import Footer from './components/footer'
 import type { Metadata } from 'next'
+import TrackSubid from './TrackSubid' // ✅ HIER
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={inter.className}>
+        <TrackSubid /> {/* ✅ HIER */}
         <Header />
         <main className="w-full px-4 sm:px-8 pt-8 pb-20 min-h-screen">
           {children}

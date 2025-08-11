@@ -18,6 +18,26 @@ export default function LoginPage() {
     if (error) {
       setError('Login fehlgeschlagen. Bitte prüfe deine Eingaben.')
     } else {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const refPartnerId = localStorage.getItem('ref_partner_id')
+
+        if (refPartnerId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('partner_id')
+            .eq('id', user.id)
+            .single()
+
+          if (!profile?.partner_id) {
+            await supabase.from('profiles').update({
+              partner_id: refPartnerId
+            }).eq('id', user.id)
+          }
+        }
+      }
+
       router.push('/')
     }
   }
