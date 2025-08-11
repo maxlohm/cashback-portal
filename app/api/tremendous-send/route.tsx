@@ -1,22 +1,29 @@
-// /app/api/tremendous-send/route.ts
+// app/api/tremendous-send/route.ts
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function getServerSupabase() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, serviceRoleKey);
+}
 
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-
-  // === 0. Content-Type prüfen ===
-  if (req.headers.get("content-type") !== "application/json") {
+  // Content-Type tolerant prüfen
+  const ct = req.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
     return NextResponse.json({ error: "Bad content type" }, { status: 415 });
   }
 
-  // === 1. Body-Größe limitieren & parsen ===
+  // Body-Größe limitieren & parsen
   const text = await req.text();
   if (text.length > 10_000) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
-
   let body: any;
   try {
     body = JSON.parse(text);
@@ -29,9 +36,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing redemption_id" }, { status: 400 });
   }
 
-  // === 2. Origin-Check (nur Admin-Oberfläche erlaubt) ===
+  // Origin-Check (fallback auf SITE_URL)
   const referer = req.headers.get("referer") || "";
-  if (!referer.includes(process.env.NEXT_PUBLIC_SITE_URL!)) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "";
+  if (siteUrl && !referer.includes(siteUrl)) {
+    const supabase = getServerSupabase();
     await supabase.from("event_log").insert({
       event_type: "origin_check_failed",
       context: { redemption_id, referer }
@@ -39,7 +48,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // === 3. Rate-Limit (1 Hit / 60s pro redemption_id) ===
+  const supabase = getServerSupabase();
+
+  // Rate-Limit
   const key = `tremendous-send:${redemption_id}`;
   const { data: ok2, error: thrErr2 } = await supabase.rpc("throttle_touch", {
     p_key: key,
@@ -53,7 +64,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Bitte kurz warten …" }, { status: 429 });
   }
 
-  // === 4. Redemption-Daten holen ===
+  // Redemption-Daten holen
   const { data: redemption, error: redemptionError } = await supabase
     .from("redemptions")
     .select("id, amount, user_email")
@@ -64,62 +75,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Redemption not found" }, { status: 404 });
   }
 
-  // === 5. Log Start ===
+  // Log Start
   await supabase.from("event_log").insert({
     event_type: "tremendous_send_started",
     related_id: redemption.id,
-    context: {
-      amount: redemption.amount,
-      user_email: redemption.user_email
-    }
+    context: { amount: redemption.amount, user_email: redemption.user_email }
   });
 
   try {
-    // === 6. Tremendous API Call ===
-    const tremendousRes = await fetch("https://api.tremendous.com/v2/orders", {
+    // Tremendous Call
+    if (!process.env.TREMENDOUS_API_KEY || !process.env.TREMENDOUS_FUNDING_SOURCE) {
+      throw new Error("Missing Tremendous credentials");
+    }
+
+    const res = await fetch("https://api.tremendous.com/v2/orders", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.TREMENDOUS_API_KEY}`,
+        Authorization: `Bearer ${process.env.TREMENDOUS_API_KEY}`,
         "Content-Type": "application/json",
-      },
+    },
       body: JSON.stringify({
         payment: { funding_source_id: process.env.TREMENDOUS_FUNDING_SOURCE },
         reward: {
           value: { denomination: redemption.amount, currency_code: "EUR" },
           recipient: { email: redemption.user_email },
-        }
+        },
       }),
     });
 
-    if (!tremendousRes.ok) {
-      const errorData = await tremendousRes.json();
-      throw new Error(JSON.stringify(errorData));
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(errBody || `Tremendous HTTP ${res.status}`);
     }
 
-    // === 7. Log Erfolg ===
     await supabase.from("event_log").insert({
       event_type: "tremendous_send_success",
       related_id: redemption.id,
-      context: {
-        amount: redemption.amount,
-        user_email: redemption.user_email
-      }
+      context: { amount: redemption.amount, user_email: redemption.user_email }
     });
 
     return NextResponse.json({ success: true });
-
   } catch (err: any) {
-    // === 8. Log Fehler ===
     await supabase.from("event_log").insert({
       event_type: "tremendous_send_failed",
       related_id: redemption.id,
-      context: {
-        amount: redemption.amount,
-        user_email: redemption.user_email,
-        error: err.message
-      }
+      context: { amount: redemption.amount, user_email: redemption.user_email, error: String(err?.message || err) }
     });
-
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
 }
