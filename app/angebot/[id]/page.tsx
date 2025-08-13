@@ -1,101 +1,60 @@
-'use client'
+// app/angebot/[id]/page.tsx
+import { cookies } from 'next/headers'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { notFound } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import { getOfferById } from '@/utils/offers'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { offers } from '@/utils/offers'
-import { supabase } from '@/utils/supabaseClient'
-
-export default function OfferDetailPage() {
-  const params = useParams()
-  const id =
-    typeof params.id === 'string'
-      ? params.id
-      : Array.isArray(params.id)
-      ? params.id[0]
-      : ''
-  const router = useRouter()
-
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  const offer = offers.find((o) => o.id === id)
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data, error } = await supabase.auth.getUser()
-      if (error || !data?.user) {
-        router.push('/login')
-      } else {
-        setUser(data.user)
-      }
-      setLoading(false)
-    }
-
-    getUser()
-  }, [router])
-
-  const handleClick = async () => {
-    if (!user || !offer) return
-
-    const partner_id = localStorage.getItem('partner_id') || null
-
-    const { error } = await supabase.from('clicks').insert({
-      user_id: user.id,
-      offer_id: offer.id,
-      clicked_at: new Date().toISOString(),
-      redeemed: false,
-      amount: offer.reward,
-      partner_id,
-    })
-
-    if (error) {
-      console.error('❌ Klick konnte nicht gespeichert werden:', error)
-    }
-
-    window.open(offer.affiliateUrl, '_blank') // Weiterleitung unabhängig vom Fehler
-  }
-
-  if (loading) {
-    return <p className="text-center text-gray-600 mt-10">Lade Angebot...</p>
-  }
-
-  if (!offer) {
-    return <p className="text-center text-gray-600 mt-10">Angebot nicht gefunden.</p>
-  }
+export default async function OfferDetailPage({ params }: { params: { id: string } }) {
+  const supabase = createServerComponentClient({ cookies })
+  const offer = await getOfferById(supabase, params.id)
+  if (!offer) return notFound()
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-8">
-      {/* Bild */}
-      <div className="flex justify-center">
-        <img
-          src={offer.image}
-          alt={offer.name || 'Angebot'}
-          className="rounded-lg shadow-md max-w-full"
-          style={{ maxWidth: 500 }}
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-3xl font-semibold text-center">{offer.name}</h1>
+      <p className="text-gray-600 mt-3 text-center">{offer.description}</p>
+
+      {/* kleines, zentriertes Bild */}
+      <div className="my-6 flex justify-center">
+        <Image
+          src={offer.image ?? '/placeholder.png'}
+          alt={offer.name}
+          width={800}
+          height={450}
+          sizes="(max-width: 640px) 90vw, 520px"
+          className="w-full max-w-[520px] h-auto object-contain rounded-xl"
+          priority
         />
       </div>
 
-      {/* Teilnahmebedingungen */}
-      {Array.isArray(offer.terms) && offer.terms.length > 0 && (
-  <div className="bg-gray-100 p-6 rounded-lg border">
-    <h2 className="text-lg font-semibold mb-4">Teilnahmebedingungen</h2>
-    <ul className="list-disc list-inside space-y-2 text-sm text-gray-800">
-      {offer.terms.map((term, index) => (
-        <li key={index}>{term}</li>
-      ))}
-    </ul>
-  </div>
-)}
+      {/* Text + Button mittig */}
+      <section className="mb-10 flex flex-col items-center text-center">
+        <h2 className="text-xl font-semibold mb-3">Teilnahmebedingungen</h2>
+        <ul className="list-disc pl-6 space-y-1 text-sm text-gray-700 text-left max-w-xl">
+          {offer.terms?.length ? (
+            offer.terms.map((t, i) => <li key={i}>{t}</li>)
+          ) : (
+            <>
+              <li>Abschluss über den Aktionslink notwendig.</li>
+              <li>Prämiengutschrift nach Bestätigung durch den Anbieter.</li>
+              <li>Nur für Neukunden, sofern nicht anders angegeben.</li>
+            </>
+          )}
+        </ul>
+      </section>
+<div className="flex justify-center">
+  <a
+    href={`/r/${offer.id}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-white bg-[#ca4b24] hover:bg-[#a33d1e] text-lg"
+  >
+    Jetzt sichern
+  </a>
+</div>
 
-      {/* CTA Button */}
-      <div className="text-center">
-        <button
-          onClick={handleClick}
-          className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded transition-all"
-        >
-          Jetzt Prämie sichern
-        </button>
-      </div>
     </div>
   )
 }
