@@ -9,7 +9,8 @@ export type Offer = {
   image?: string | null
   affiliateUrl?: string | null
   categories: ('versicherung' | 'kredit' | 'vergleiche' | 'finanzen' | 'mobilfunk')[]
-  terms?: string[]
+  terms?: string[]               // aktuell leer befüllt (siehe Mapper)
+  active?: boolean               // ✅ neu im Typ
 }
 
 export type DbOffer = {
@@ -23,17 +24,19 @@ export type DbOffer = {
   image_url?: string | null
   affiliate_url?: string | null
   created_at: string
+  // terms?: string[] | null      // nur nutzen, wenn Spalte existiert
 }
 
 const mapDbToOffer = (row: DbOffer): Offer => ({
   id: row.id,
-  name: row.title,
+  name: row.title,                                 // title -> name
   description: row.description ?? '',
   reward: Number(row.reward_amount ?? 0),
-  image: row.image_url ?? null,
+  image: row.image_url ?? null,                    // image_url -> image
   affiliateUrl: row.affiliate_url ?? null,
   categories: row.category ? [row.category as Offer['categories'][number]] : [],
-  terms: [],
+  terms: [],                                       // Placeholder (keine DB-Spalte nötig)
+  active: row.active,                              // ✅ active durchreichen
 })
 
 export async function getActiveOffers(

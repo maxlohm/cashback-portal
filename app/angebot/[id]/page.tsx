@@ -6,55 +6,77 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getOfferById } from '@/utils/offers'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default async function OfferDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createServerComponentClient({ cookies })
-  const offer = await getOfferById(supabase, params.id)
-  if (!offer) return notFound()
+  const cookieStore = cookies()
+  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+
+  const offer = await getOfferById(supabase, params.id).catch(() => null)
+  if (!offer || offer.active === false) return notFound()
+
+  const terms: string[] | undefined = offer.terms
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-3xl font-semibold text-center">{offer.name}</h1>
-      <p className="text-gray-600 mt-3 text-center">{offer.description}</p>
+    <main className="max-w-3xl mx-auto p-6 space-y-8">
+      {/* Titel */}
+      <header className="text-center space-y-2">
+        <h1 className="text-3xl font-semibold">{offer.name}</h1>
+        {offer.description && <p className="text-gray-600">{offer.description}</p>}
+      </header>
 
-      {/* kleines, zentriertes Bild */}
-      <div className="my-6 flex justify-center">
+      {/* Bild – kleiner, mittig */}
+      <div className="flex justify-center">
         <Image
           src={offer.image ?? '/placeholder.png'}
           alt={offer.name}
-          width={800}
-          height={450}
-          sizes="(max-width: 640px) 90vw, 520px"
-          className="w-full max-w-[520px] h-auto object-contain rounded-xl"
+          width={400}
+          height={250}
+          sizes="(max-width: 640px) 90vw, 400px"
+          className="w-full max-w-[400px] h-auto object-contain rounded-xl"
           priority
         />
       </div>
 
-      {/* Text + Button mittig */}
-      <section className="mb-10 flex flex-col items-center text-center">
+      {/* Teilnahmebedingungen – mittig */}
+      <section className="rounded-xl border bg-white p-5 text-center">
         <h2 className="text-xl font-semibold mb-3">Teilnahmebedingungen</h2>
-        <ul className="list-disc pl-6 space-y-1 text-sm text-gray-700 text-left max-w-xl">
-          {offer.terms?.length ? (
-            offer.terms.map((t, i) => <li key={i}>{t}</li>)
+        <ul className="list-disc pl-6 space-y-1 text-sm text-gray-700 inline-block text-left">
+          {Array.isArray(terms) && terms.length > 0 ? (
+            terms.map((t, i) => <li key={i}>{t}</li>)
           ) : (
             <>
-              <li>Abschluss über den Aktionslink notwendig.</li>
-              <li>Prämiengutschrift nach Bestätigung durch den Anbieter.</li>
-              <li>Nur für Neukunden, sofern nicht anders angegeben.</li>
+              <li>Abschluss/Bestellung muss über den „Jetzt sichern“-Button erfolgen.</li>
+              <li>Prämiengutschrift nach Bestätigung durch den Advertiser.</li>
+              <li>Stornierungen/Retours, Mehrfach- oder Eigenabschlüsse sind ausgeschlossen.</li>
+              <li>Auszahlung gemäß Portal-AGB nach Ablauf der Sperrfrist.</li>
             </>
           )}
         </ul>
       </section>
-<div className="flex justify-center">
-  <a
-    href={`/r/${offer.id}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-white bg-[#ca4b24] hover:bg-[#a33d1e] text-lg"
-  >
-    Jetzt sichern
-  </a>
-</div>
 
-    </div>
+      {/* Button – mittig */}
+      <div className="flex flex-col items-center gap-3">
+        <a
+          href={`/r/${offer.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-white bg-[#ca4b24] hover:bg-[#a33d1e] text-lg"
+        >
+          Jetzt sichern
+        </a>
+        <p className="text-xs text-gray-500">
+          Beim Klick wird das Tracking gestartet und du wirst zum Anbieter weitergeleitet.
+        </p>
+      </div>
+
+      {/* Zurück-Link – mittig */}
+      <nav className="flex justify-center">
+        <Link href="/" className="text-sm text-gray-600 hover:underline">
+          Zurück zur Übersicht
+        </Link>
+      </nav>
+    </main>
   )
 }
