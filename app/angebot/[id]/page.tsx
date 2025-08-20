@@ -9,13 +9,10 @@ import { getOfferById } from '@/utils/offers'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// ✅ Eigener Props-Typ
-type OfferDetailPageProps = {
-  params: { id: string }
-}
-
-export default async function OfferDetailPage({ params }: OfferDetailPageProps) {
-  const { id } = params
+export default async function OfferDetailPage(
+  { params }: { params: Promise<{ id: string }> }   // ✅ Next 15 expects Promise
+) {
+  const { id } = await params                         // ✅ aus Promise auspacken
 
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
