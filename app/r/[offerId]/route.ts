@@ -7,7 +7,8 @@ import { buildAffiliateUrl } from '@/utils/offers'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const UUIDV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUIDV4 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function readCookieFromReq(req: Request, name: string): string | null {
   const cookieHeader = req.headers.get('cookie') || ''
@@ -15,35 +16,52 @@ function readCookieFromReq(req: Request, name: string): string | null {
     const [k, ...rest] = part.trim().split('=')
     if (k === name) {
       const v = rest.join('=')
-      try { return decodeURIComponent(v) } catch { return v }
+      try {
+        return decodeURIComponent(v)
+      } catch {
+        return v
+      }
     }
   }
   return null
 }
 
-export async function GET(req: Request, { params }: { params: { offerId: string } }) {
-  const cookieStore = nextCookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+export async function GET(
+  req: Request,
+  { params }: { params: { offerId: string } }
+) {
+  const supabase = createRouteHandlerClient({ cookies: nextCookies })
 
   const offerId = params.offerId
   const url = new URL(req.url)
   const dbg = url.searchParams.get('dbg') === '1'
 
-  // 1) ?ref lesen + validieren
+  // 1) Partner-Ref aus Query validieren
   const ref = url.searchParams.get('ref')
   const refPartnerId = ref && UUIDV4.test(ref) ? ref : null
 
-  // 2) Auth prüfen (Session/User)
-  const { data: { user } } = await supabase.auth.getUser()
+  // 2) Auth prüfen (User optional → hier aber Login erzwingen)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) {
     const loginUrl = new URL('/login', url)
-    loginUrl.searchParams.set('next', `/r/${offerId}${refPartnerId ? `?ref=${refPartnerId}` : ''}`)
+    loginUrl.searchParams.set(
+      'next',
+      `/r/${offerId}${refPartnerId ? `?ref=${refPartnerId}` : ''}`
+    )
     const res = NextResponse.redirect(loginUrl, 302)
-    if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
+    if (refPartnerId) {
+      res.cookies.set('bn_ref', refPartnerId, {
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+      })
+    }
     return res
   }
 
-  // 3) Offer prüfen
+  // 3) Offer prüfen (aktiv + Affiliate-URL vorhanden)
   const { data: offer, error: offerErr } = await supabase
     .from('offers')
     .select('id, affiliate_url, active')
@@ -54,11 +72,15 @@ export async function GET(req: Request, { params }: { params: { offerId: string 
   if (offerErr || !offer?.affiliate_url) {
     const loc = new URL(`/angebot/${offerId}?unavailable=1`, url)
     return dbg
-      ? NextResponse.json({ ok: false, reason: 'no-offer', error: offerErr?.message })
+      ? NextResponse.json({
+          ok: false,
+          reason: 'no-offer',
+          error: offerErr?.message,
+        })
       : NextResponse.redirect(loc, 302)
   }
 
-  // 4) Partner-Attribution: query -> cookie -> profile.partner_id
+  // 4) Partner-Attribution: Query → Cookie → Profil
   const refFromCookie = readCookieFromReq(req, 'bn_ref')
   let partnerId: string | null = refPartnerId ?? refFromCookie
   if (!partnerId) {
@@ -70,9 +92,13 @@ export async function GET(req: Request, { params }: { params: { offerId: string 
     partnerId = (p as any)?.partner_id ?? null
   }
 
-  // 5) Idempotenter Click (INSERT → bei Unique-Conflict UPDATE)
+  // 5) Idempotenter Click (INSERT → bei Unique-Konflikt UPDATE)
   const nowIso = new Date().toISOString()
-  const row: Record<string, any> = { user_id: user.id, offer_id: offerId, clicked_at: nowIso }
+  const row: Record<string, any> = {
+    user_id: user.id,
+    offer_id: offerId,
+    clicked_at: nowIso,
+  }
   if (partnerId) row.partner_id = partnerId
 
   let mode: 'insert' | 'update' = 'insert'
@@ -116,9 +142,15 @@ export async function GET(req: Request, { params }: { params: { offerId: string 
     })
   }
 
-  // 6) Redirect + Cookie setzen (falls ref da)
-  const dest = buildAffiliateUrl(offer.affiliate_url, user.id, offerId) || '/'
+  // 6) Redirect + Ref-Cookie setzen
+  const dest =
+    buildAffiliateUrl(offer.affiliate_url, user.id, offerId) || '/'
   const res = NextResponse.redirect(dest, 302)
-  if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
+  if (refPartnerId) {
+    res.cookies.set('bn_ref', refPartnerId, {
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+    })
+  }
   return res
 }

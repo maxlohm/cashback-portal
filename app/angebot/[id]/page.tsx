@@ -1,47 +1,46 @@
-// app/go/[offerId]/route.ts
-import { NextResponse } from 'next/server'
+// app/angebot/[id]/page.tsx
 import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { getOfferById, buildAffiliateUrl } from '@/utils/offers'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 
-export async function GET(req: Request, { params }: { params: { offerId: string } }) {
-  const offerId = params?.offerId
-  if (!offerId) {
-    return NextResponse.redirect(new URL('/', req.url))
+export default async function OfferPage({
+  params,
+}: {
+  params: { id: string }
+}) {
+  const supabase = createServerComponentClient({ cookies })
+  const { data: offer } = await supabase
+    .from('offers')
+    .select('id, title, description, reward_amount, active')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (!offer || !offer.active) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        Angebot nicht gefunden oder inaktiv.
+      </div>
+    )
   }
 
-  const supabase = createRouteHandlerClient({ cookies })
+  return (
+    <div className="max-w-2xl mx-auto p-6 space-y-4">
+      <h1 className="text-2xl font-semibold">{offer.title}</h1>
+      {offer.description && <p>{offer.description}</p>}
+      <div className="text-lg font-medium">
+        Prämie: {offer.reward_amount} €
+      </div>
 
-  // user optional
-  const { data: userRes } = await supabase.auth.getUser()
-  const userId = userRes?.user?.id ?? null
-
-  // Offer laden
-  const offer = await getOfferById(supabase, offerId).catch(() => null)
-  if (!offer?.affiliateUrl) {
-    return NextResponse.redirect(new URL('/', req.url))
-  }
-
-  // Click best effort loggen (Fehler ignorieren)
-  if (userId) {
-    try {
-      await supabase.from('clicks').insert({
-        user_id: userId,
-        offer_id: offer.id,
-        influencer_id: null,
-        clicked_at: new Date().toISOString(),
-        redeemed: false,
-      })
-    } catch {}
-  }
-
-  // Affiliate-URL bauen & redirecten (externes Ziel)
-  const target =
-    buildAffiliateUrl(offer.affiliateUrl, userId ?? 'anon', offer.id) ??
-    offer.affiliateUrl
-
-  return NextResponse.redirect(target)
+      {/* öffnet Redirect-Route */}
+      <Link
+        href={`/r/${offer.id}`}
+        target="_blank"
+        className="inline-block rounded-lg border px-4 py-2 hover:bg-gray-100"
+      >
+        Zum Angebot
+      </Link>
+    </div>
+  )
 }
