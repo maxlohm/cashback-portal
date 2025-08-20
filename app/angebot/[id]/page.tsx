@@ -9,28 +9,29 @@ import { getOfferById } from '@/utils/offers'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-interface OfferDetailProps {
+// ✅ Eigener Props-Typ
+type OfferDetailPageProps = {
   params: { id: string }
 }
 
-export default async function OfferDetailPage({ params }: OfferDetailProps) {
+export default async function OfferDetailPage({ params }: OfferDetailPageProps) {
+  const { id } = params
+
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
-  const offer = await getOfferById(supabase, params.id).catch(() => null)
+  const offer = await getOfferById(supabase, id).catch(() => null)
   if (!offer || offer.active === false) return notFound()
 
   const terms: string[] | undefined = offer.terms
 
   return (
     <main className="max-w-3xl mx-auto p-6 space-y-8">
-      {/* Titel */}
       <header className="text-center space-y-2">
         <h1 className="text-3xl font-semibold">{offer.name}</h1>
         {offer.description && <p className="text-gray-600">{offer.description}</p>}
       </header>
 
-      {/* Bild – kleiner, mittig */}
       <div className="flex justify-center">
         <Image
           src={offer.image ?? '/placeholder.png'}
@@ -43,7 +44,6 @@ export default async function OfferDetailPage({ params }: OfferDetailProps) {
         />
       </div>
 
-      {/* Teilnahmebedingungen – mittig */}
       <section className="rounded-xl border bg-white p-5 text-center">
         <h2 className="text-xl font-semibold mb-3">Teilnahmebedingungen</h2>
         <ul className="list-disc pl-6 space-y-1 text-sm text-gray-700 inline-block text-left">
@@ -60,7 +60,6 @@ export default async function OfferDetailPage({ params }: OfferDetailProps) {
         </ul>
       </section>
 
-      {/* Button – mittig */}
       <div className="flex flex-col items-center gap-3">
         <a
           href={`/r/${offer.id}`}
@@ -75,7 +74,6 @@ export default async function OfferDetailPage({ params }: OfferDetailProps) {
         </p>
       </div>
 
-      {/* Zurück-Link – mittig */}
       <nav className="flex justify-center">
         <Link href="/" className="text-sm text-gray-600 hover:underline">
           Zurück zur Übersicht
