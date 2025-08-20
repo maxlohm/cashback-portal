@@ -1,6 +1,7 @@
 // utils/offers.ts
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+/** App-internes Offer-Model */
 export type Offer = {
   id: string
   name: string
@@ -9,10 +10,11 @@ export type Offer = {
   image?: string | null
   affiliateUrl?: string | null
   categories: ('versicherung' | 'kredit' | 'vergleiche' | 'finanzen' | 'mobilfunk')[]
-  terms?: string[]               // aktuell leer befüllt (siehe Mapper)
-  active?: boolean               // ✅ neu im Typ
+  terms?: string[]          // Placeholder – kann später aus DB kommen
+  active?: boolean
 }
 
+/** DB-Rohdatensatz aus public.offers */
 export type DbOffer = {
   id: string
   title: string
@@ -24,21 +26,23 @@ export type DbOffer = {
   image_url?: string | null
   affiliate_url?: string | null
   created_at: string
-  // terms?: string[] | null      // nur nutzen, wenn Spalte existiert
+  // terms?: string[] | null   // nur nutzen, wenn du es in der DB hast
 }
 
+/** DB -> App Mapping */
 const mapDbToOffer = (row: DbOffer): Offer => ({
   id: row.id,
-  name: row.title,                                 // title -> name
+  name: row.title,
   description: row.description ?? '',
   reward: Number(row.reward_amount ?? 0),
-  image: row.image_url ?? null,                    // image_url -> image
+  image: row.image_url ?? null,
   affiliateUrl: row.affiliate_url ?? null,
   categories: row.category ? [row.category as Offer['categories'][number]] : [],
-  terms: [],                                       // Placeholder (keine DB-Spalte nötig)
-  active: row.active,                              // ✅ active durchreichen
+  terms: [],
+  active: row.active,
 })
 
+/** Alle aktiven Offers (optional limitiert) */
 export async function getActiveOffers(
   supabase: SupabaseClient,
   opts: { limit?: number } = {}
@@ -55,6 +59,26 @@ export async function getActiveOffers(
   return (data as DbOffer[]).map(mapDbToOffer)
 }
 
+/** Aktive Offers nach Kategorien (DB-seitig gefiltert) */
+export async function getActiveOffersByCategories(
+  supabase: SupabaseClient,
+  categories: Array<'finanzen' | 'kredit' | 'versicherung' | 'vergleiche' | 'mobilfunk'>,
+  opts: { limit?: number } = {}
+): Promise<Offer[]> {
+  const { limit = 100 } = opts
+  const { data, error } = await supabase
+    .from('offers')
+    .select('id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at')
+    .eq('active', true)
+    .in('category', categories)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return (data as DbOffer[]).map(mapDbToOffer)
+}
+
+/** Einzelnes Offer per ID */
 export async function getOfferById(
   supabase: SupabaseClient,
   id: string
@@ -69,7 +93,7 @@ export async function getOfferById(
   return data ? mapDbToOffer(data as DbOffer) : null
 }
 
-/** Baut ?subid=<userId>|<offerId> an die Affiliate-URL an */
+/** Hängt ?subid=<userId>|<offerId> an eine Affiliate-URL an */
 export function buildAffiliateUrl(
   baseUrl: string | null | undefined,
   userId: string,

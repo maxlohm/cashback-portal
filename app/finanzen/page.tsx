@@ -1,64 +1,70 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/utils/supabaseClient'
+import Image from 'next/image'
 import KategorieNavigation from '../navigation/page'
-import { offers, Offer } from '@/utils/offers'
 import DealCard from '../components/DealCard'
+import OffersGrid from '../components/OffersGrid'
+import { supabase } from '@/utils/supabaseClient'
+import { getActiveOffersByCategories, type Offer } from '@/utils/offers'
 
 export default function FinanzenPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [items, setItems] = useState<Offer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data?.user) setUser(data.user)
-    }
-    checkUser()
+    (async () => {
+      try {
+        const offers = await getActiveOffersByCategories(supabase, ['finanzen', 'kredit'])
+        setItems(offers)
+      } catch (e: any) {
+        setError(e?.message ?? 'Fehler beim Laden')
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
   return (
-    <>
-      {/* Banner oben */}
-      <div className="w-full">
-        <Image
-          src="/bannerrichtig.png"
-          alt="Finanzen Banner"
-          width={1440}
-          height={300}
-          className="w-full h-auto object-cover"
-          priority
-        />
-      </div>
+    <div>
+      <Image
+        src="/bannerrichtig.png"
+        alt="Kategorie Finanzen"
+        width={1920}
+        height={300}
+        className="w-full h-auto object-cover"
+        priority
+      />
 
-      {/* Navigation */}
       <KategorieNavigation />
 
-      {/* Inhalt */}
-      <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-10">
-        <h1 className="text-3xl font-bold text-[#003b5b] mb-4"></h1>
-        <div className="flex flex-wrap gap-6 justify-start">
-          {offers
-            .filter((offer: Offer) =>
-              offer.categories.includes('kredit') ||
-              offer.categories.includes('finanzen')
-            )
-            .map((offer: Offer) => (
+      <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        {loading && <div className="text-sm text-gray-500">Lade Angebote…</div>}
+        {!loading && error && (
+          <div className="text-sm text-red-600">Fehler: {error}</div>
+        )}
+        {!loading && !error && (
+          <OffersGrid>
+            {items.map((offer) => (
               <DealCard
                 key={offer.id}
+                id={offer.id}
                 name={offer.name}
                 description={offer.description}
                 reward={offer.reward}
-                image={offer.image}
-                offerId={offer.id}
-                url={offer.affiliateUrl}
+                image={offer.image ?? '/placeholder.png'}
+                url={`/angebot/${offer.id}`}
               />
             ))}
-        </div>
+            {items.length === 0 && (
+              <div className="col-span-full text-sm text-gray-500 text-center">
+                Aktuell keine Finanz-/Kredit-Angebote verfügbar.
+              </div>
+            )}
+          </OffersGrid>
+        )}
       </main>
-    </>
+    </div>
   )
 }

@@ -4,28 +4,30 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import KategorieNavigation from './navigation/page'
 import DealCard from './components/DealCard'
+import OffersGrid from './components/OffersGrid'
 import { supabase } from '@/utils/supabaseClient'
 import { getActiveOffers, type Offer } from '@/utils/offers'
 
 export default function AlleAngebotePage() {
   const [items, setItems] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const init = async () => {
+    (async () => {
       try {
         const offers = await getActiveOffers(supabase)
         setItems(offers)
+      } catch (e: any) {
+        setError(e?.message ?? 'Fehler beim Laden')
       } finally {
         setLoading(false)
       }
-    }
-    init()
+    })()
   }, [])
 
   return (
     <div>
-      {/* Banner */}
       <Image
         src="/bannerrichtig.png"
         alt="Alle Angebote"
@@ -35,15 +37,15 @@ export default function AlleAngebotePage() {
         priority
       />
 
-      {/* Kategorien */}
       <KategorieNavigation />
 
-      {/* Angebote */}
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        {loading ? (
-          <div className="text-sm text-gray-500">Lade Angebote…</div>
-        ) : (
-          <div className="flex flex-wrap gap-6">
+        {loading && <div className="text-sm text-gray-500">Lade Angebote…</div>}
+        {!loading && error && (
+          <div className="text-sm text-red-600">Fehler: {error}</div>
+        )}
+        {!loading && !error && (
+          <OffersGrid>
             {items.map((offer) => (
               <DealCard
                 key={offer.id}
@@ -52,15 +54,15 @@ export default function AlleAngebotePage() {
                 description={offer.description}
                 reward={offer.reward}
                 image={offer.image ?? '/placeholder.png'}
-                url={`/angebot/${offer.id}`} // ✅ Zwischenseite
+                url={`/angebot/${offer.id}`}
               />
             ))}
             {items.length === 0 && (
-              <div className="text-sm text-gray-500">
+              <div className="col-span-full text-sm text-gray-500 text-center">
                 Aktuell keine Angebote verfügbar.
               </div>
             )}
-          </div>
+          </OffersGrid>
         )}
       </main>
     </div>
