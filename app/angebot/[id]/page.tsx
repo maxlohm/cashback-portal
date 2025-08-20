@@ -7,16 +7,13 @@ import { getOfferById, buildAffiliateUrl } from '@/utils/offers'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// WICHTIG: KEINE Typisierung des 2. Arguments! (kein { params: { offerId: string } } usw.)
-export async function GET(req: Request, ctx: any) {
-  const offerId = ctx?.params?.offerId as string | undefined
-
+export async function GET(req: Request, { params }: { params: { offerId: string } }) {
+  const offerId = params?.offerId
   if (!offerId) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  const supabase = createRouteHandlerClient({ cookies })
 
   // user optional
   const { data: userRes } = await supabase.auth.getUser()
@@ -28,7 +25,7 @@ export async function GET(req: Request, ctx: any) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
-  // Click best effort loggen
+  // Click best effort loggen (Fehler ignorieren)
   if (userId) {
     try {
       await supabase.from('clicks').insert({
@@ -38,12 +35,10 @@ export async function GET(req: Request, ctx: any) {
         clicked_at: new Date().toISOString(),
         redeemed: false,
       })
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
-  // Affiliate-URL bauen & redirecten
+  // Affiliate-URL bauen & redirecten (externes Ziel)
   const target =
     buildAffiliateUrl(offer.affiliateUrl, userId ?? 'anon', offer.id) ??
     offer.affiliateUrl
