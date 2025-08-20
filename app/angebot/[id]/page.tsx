@@ -1,82 +1,52 @@
-// app/angebot/[id]/page.tsx
+// app/go/[offerId]/route.ts
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { notFound } from 'next/navigation'
-import Image from 'next/image'
-import Link from 'next/link'
-import { getOfferById } from '@/utils/offers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { getOfferById, buildAffiliateUrl } from '@/utils/offers'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// kein GET/POST Export hier!
-export default async function OfferDetailPage(
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
+// WICHTIG: KEINE Typisierung des 2. Arguments! (kein { params: { offerId: string } } usw.)
+export async function GET(req: Request, ctx: any) {
+  const offerId = ctx?.params?.offerId as string | undefined
+
+  if (!offerId) {
+    return NextResponse.redirect(new URL('/', req.url))
+  }
 
   const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-  const offer = await getOfferById(supabase, id).catch(() => null)
-  if (!offer || offer.active === false) return notFound()
+  // user optional
+  const { data: userRes } = await supabase.auth.getUser()
+  const userId = userRes?.user?.id ?? null
 
-  const terms: string[] | undefined = offer.terms
+  // Offer laden
+  const offer = await getOfferById(supabase, offerId).catch(() => null)
+  if (!offer?.affiliateUrl) {
+    return NextResponse.redirect(new URL('/', req.url))
+  }
 
-  return (
-    <main className="max-w-3xl mx-auto p-6 space-y-8">
-      <header className="text-center space-y-2">
-        <h1 className="text-3xl font-semibold">{offer.name}</h1>
-        {offer.description && <p className="text-gray-600">{offer.description}</p>}
-      </header>
+  // Click best effort loggen
+  if (userId) {
+    try {
+      await supabase.from('clicks').insert({
+        user_id: userId,
+        offer_id: offer.id,
+        influencer_id: null,
+        clicked_at: new Date().toISOString(),
+        redeemed: false,
+      })
+    } catch {
+      // ignore
+    }
+  }
 
-      <div className="flex justify-center">
-        <Image
-          src={offer.image ?? '/placeholder.png'}
-          alt={offer.name}
-          width={400}
-          height={250}
-          sizes="(max-width: 640px) 90vw, 400px"
-          className="w-full max-w-[400px] h-auto object-contain rounded-xl"
-          priority
-        />
-      </div>
+  // Affiliate-URL bauen & redirecten
+  const target =
+    buildAffiliateUrl(offer.affiliateUrl, userId ?? 'anon', offer.id) ??
+    offer.affiliateUrl
 
-      <section className="rounded-xl border bg-white p-5 text-center">
-        <h2 className="text-xl font-semibold mb-3">Teilnahmebedingungen</h2>
-        <ul className="list-disc pl-6 space-y-1 text-sm text-gray-700 inline-block text-left">
-          {Array.isArray(terms) && terms.length > 0 ? (
-            terms.map((t, i) => <li key={i}>{t}</li>)
-          ) : (
-            <>
-              <li>Abschluss/Bestellung muss über den „Jetzt sichern“-Button erfolgen.</li>
-              <li>Prämiengutschrift nach Bestätigung durch den Advertiser.</li>
-              <li>Stornierungen/Retours, Mehrfach- oder Eigenabschlüsse sind ausgeschlossen.</li>
-              <li>Auszahlung gemäß Portal-AGB nach Ablauf der Sperrfrist.</li>
-            </>
-          )}
-        </ul>
-      </section>
-
-      <div className="flex flex-col items-center gap-3">
-        <a
-          href={`/r/${offer.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-white bg-[#ca4b24] hover:bg-[#a33d1e] text-lg"
-        >
-          Jetzt sichern
-        </a>
-        <p className="text-xs text-gray-500">
-          Beim Klick wird das Tracking gestartet und du wirst zum Anbieter weitergeleitet.
-        </p>
-      </div>
-
-      <nav className="flex justify-center">
-        <Link href="/" className="text-sm text-gray-600 hover:underline">
-          Zurück zur Übersicht
-        </Link>
-      </nav>
-    </main>
-  )
+  return NextResponse.redirect(target)
 }
