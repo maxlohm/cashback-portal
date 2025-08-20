@@ -9,7 +9,11 @@ import { getOfferById } from '@/utils/offers'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export default async function OfferDetailPage({ params }: { params: { id: string } }) {
+interface OfferDetailProps {
+  params: { id: string }
+}
+
+export default async function OfferDetailPage({ params }: OfferDetailProps) {
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
