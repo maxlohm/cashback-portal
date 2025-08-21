@@ -9,8 +9,16 @@ export type Offer = {
   reward: number
   image?: string | null
   affiliateUrl?: string | null
-  categories: ('versicherung' | 'kredit' | 'vergleiche' | 'finanzen' | 'mobilfunk')[]
-  terms?: string[]          // Placeholder – kann später aus DB kommen
+  categories: (
+    | 'versicherung'
+    | 'kredit'
+    | 'vergleiche'
+    | 'finanzen'
+    | 'mobilfunk'
+    | 'shopping'
+  )[]
+  /** Teilnahmebedingungen (optional – aus DB-Spalte `offers.terms`) */
+  terms?: string | null
   active?: boolean
 }
 
@@ -26,7 +34,7 @@ export type DbOffer = {
   image_url?: string | null
   affiliate_url?: string | null
   created_at: string
-  // terms?: string[] | null   // nur nutzen, wenn du es in der DB hast
+  terms?: string | null
 }
 
 /** DB -> App Mapping */
@@ -38,9 +46,13 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   image: row.image_url ?? null,
   affiliateUrl: row.affiliate_url ?? null,
   categories: row.category ? [row.category as Offer['categories'][number]] : [],
-  terms: [],
+  terms: row.terms ?? null,
   active: row.active,
 })
+
+/** Basis-Select, damit wir nicht überall die Spalten wiederholen */
+const baseSelect =
+  'id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at, terms'
 
 /** Alle aktiven Offers (optional limitiert) */
 export async function getActiveOffers(
@@ -50,7 +62,7 @@ export async function getActiveOffers(
   const { limit = 100 } = opts
   const { data, error } = await supabase
     .from('offers')
-    .select('id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at')
+    .select(baseSelect)
     .eq('active', true)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -62,13 +74,15 @@ export async function getActiveOffers(
 /** Aktive Offers nach Kategorien (DB-seitig gefiltert) */
 export async function getActiveOffersByCategories(
   supabase: SupabaseClient,
-  categories: Array<'finanzen' | 'kredit' | 'versicherung' | 'vergleiche' | 'mobilfunk'>,
+  categories: Array<
+    'finanzen' | 'kredit' | 'versicherung' | 'vergleiche' | 'mobilfunk' | 'shopping'
+  >,
   opts: { limit?: number } = {}
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
   const { data, error } = await supabase
     .from('offers')
-    .select('id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at')
+    .select(baseSelect)
     .eq('active', true)
     .in('category', categories)
     .order('created_at', { ascending: false })
@@ -85,7 +99,7 @@ export async function getOfferById(
 ): Promise<Offer | null> {
   const { data, error } = await supabase
     .from('offers')
-    .select('id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at')
+    .select(baseSelect)
     .eq('id', id)
     .maybeSingle()
 
