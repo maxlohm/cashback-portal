@@ -16,23 +16,18 @@ function readCookieFromReq(req: Request, name: string): string | null {
     const [k, ...rest] = part.trim().split('=')
     if (k === name) {
       const v = rest.join('=')
-      try {
-        return decodeURIComponent(v)
-      } catch {
-        return v
-      }
+      try { return decodeURIComponent(v) } catch { return v }
     }
   }
   return null
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: { offerId: string } }
-) {
+export async function GET(req: Request, ctx: any) {
   const supabase = createRouteHandlerClient({ cookies: nextCookies })
 
-  const offerId = params.offerId
+  const offerId = ctx?.params?.offerId as string | undefined
+  if (!offerId) return NextResponse.redirect(new URL('/', req.url), 302)
+
   const url = new URL(req.url)
   const dbg = url.searchParams.get('dbg') === '1'
 
@@ -40,28 +35,17 @@ export async function GET(
   const ref = url.searchParams.get('ref')
   const refPartnerId = ref && UUIDV4.test(ref) ? ref : null
 
-  // 2) Auth prüfen (User optional → hier aber Login erzwingen)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  // 2) Auth prüfen (Login erzwingen)
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     const loginUrl = new URL('/login', url)
-    loginUrl.searchParams.set(
-      'next',
-      `/r/${offerId}${refPartnerId ? `?ref=${refPartnerId}` : ''}`
-    )
+    loginUrl.searchParams.set('next', `/r/${offerId}${refPartnerId ? `?ref=${refPartnerId}` : ''}`)
     const res = NextResponse.redirect(loginUrl, 302)
-    if (refPartnerId) {
-      res.cookies.set('bn_ref', refPartnerId, {
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/',
-      })
-    }
+    if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
     return res
   }
 
-  // 3) Offer prüfen (aktiv + Affiliate-URL vorhanden)
+  // 3) Offer prüfen
   const { data: offer, error: offerErr } = await supabase
     .from('offers')
     .select('id, affiliate_url, active')
@@ -72,11 +56,7 @@ export async function GET(
   if (offerErr || !offer?.affiliate_url) {
     const loc = new URL(`/angebot/${offerId}?unavailable=1`, url)
     return dbg
-      ? NextResponse.json({
-          ok: false,
-          reason: 'no-offer',
-          error: offerErr?.message,
-        })
+      ? NextResponse.json({ ok: false, reason: 'no-offer', error: offerErr?.message })
       : NextResponse.redirect(loc, 302)
   }
 
@@ -92,13 +72,9 @@ export async function GET(
     partnerId = (p as any)?.partner_id ?? null
   }
 
-  // 5) Idempotenter Click (INSERT → bei Unique-Konflikt UPDATE)
+  // 5) Idempotenter Click
   const nowIso = new Date().toISOString()
-  const row: Record<string, any> = {
-    user_id: user.id,
-    offer_id: offerId,
-    clicked_at: nowIso,
-  }
+  const row: Record<string, any> = { user_id: user.id, offer_id: offerId, clicked_at: nowIso }
   if (partnerId) row.partner_id = partnerId
 
   let mode: 'insert' | 'update' = 'insert'
@@ -143,14 +119,8 @@ export async function GET(
   }
 
   // 6) Redirect + Ref-Cookie setzen
-  const dest =
-    buildAffiliateUrl(offer.affiliate_url, user.id, offerId) || '/'
+  const dest = buildAffiliateUrl(offer.affiliate_url, user.id, offerId) || '/'
   const res = NextResponse.redirect(dest, 302)
-  if (refPartnerId) {
-    res.cookies.set('bn_ref', refPartnerId, {
-      maxAge: 60 * 60 * 24 * 30,
-      path: '/',
-    })
-  }
+  if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
   return res
 }
