@@ -9,9 +9,10 @@ import { usePathname } from 'next/navigation'
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [isPartner, setIsPartner] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(true)
-  const menuRef = useRef(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -22,15 +23,17 @@ export default function Header() {
       if (user) {
         setLoggedIn(true)
 
+        // Partner-Check (deine bestehende Logik)
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
           .eq('id', user.id)
           .maybeSingle()
+        if (partner) setIsPartner(true)
 
-        if (partner) {
-          setIsPartner(true)
-        }
+        // ✅ Admin-Check: über RPC (security definer), unabhängig von RLS
+        const { data: isAdminFlag } = await supabase.rpc('is_admin')
+        if (isAdminFlag === true) setIsAdmin(true)
       }
 
       setLoadingAuth(false)
@@ -41,14 +44,10 @@ export default function Header() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !(menuRef.current as HTMLElement).contains(event.target as Node)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -61,10 +60,7 @@ export default function Header() {
   return (
     <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50">
       {/* Menü-Button */}
-      <div
-        ref={menuRef}
-        className="absolute top-4 right-4 z-50 sm:top-6 sm:right-6"
-      >
+      <div ref={menuRef} className="absolute top-4 right-4 z-50 sm:top-6 sm:right-6">
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -75,19 +71,37 @@ export default function Header() {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
+            <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">Angebote</Link>
+
               {!loadingAuth && loggedIn && (
                 <>
                   <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">Mein Profil</Link>
                   <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</Link>
+
                   {isPartner && (
-                    <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">Partner-Dashboard</Link>
+                    <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">
+                      Partner‑Dashboard
+                    </Link>
+                  )}
+
+                  {isAdmin && (
+                    <>
+                      <div className="px-4 pt-2 text-xs text-gray-500">Admin</div>
+                      <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
+                        Admin‑Dashboard
+                      </Link>
+                      <Link href="/admin/users" className="block px-4 py-2 hover:bg-gray-100">
+                        Nutzerverwaltung
+                      </Link>
+                    </>
                   )}
                 </>
               )}
+
               <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">Support</Link>
               <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">FAQ</Link>
+
               {!loadingAuth && (
                 loggedIn ? (
                   <button
@@ -138,7 +152,7 @@ export default function Header() {
           />
         </div>
 
-        {/* Maus – wird auf Mobilgeräten ausgeblendet */}
+        {/* Maus – Mobil ausgeblendet */}
         <div className="hidden sm:block w-36 md:w-44 -mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"

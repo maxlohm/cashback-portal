@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import AdminRedemptionsClient from './AdminRedemptionsClient';
+import UsersAdminClient from './UsersAdminClient';
 
 export default function Page() {
-  return <AdminRedemptionsClient />;
+  return <UsersAdminClient />;
 }

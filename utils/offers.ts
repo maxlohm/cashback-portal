@@ -17,7 +17,7 @@ export type Offer = {
     | 'mobilfunk'
     | 'shopping'
   )[]
-  /** Teilnahmebedingungen (optional – aus DB-Spalte `offers.terms`) */
+  /** Teilnahmebedingungen (aus DB-Spalte `offers.terms`) */
   terms?: string | null
   active?: boolean
 }
@@ -50,7 +50,7 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   active: row.active,
 })
 
-/** Basis-Select, damit wir nicht überall die Spalten wiederholen */
+/** Basis-Select */
 const baseSelect =
   'id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at, terms'
 
@@ -66,12 +66,11 @@ export async function getActiveOffers(
     .eq('active', true)
     .order('created_at', { ascending: false })
     .limit(limit)
-
   if (error) throw error
   return (data as DbOffer[]).map(mapDbToOffer)
 }
 
-/** Aktive Offers nach Kategorien (DB-seitig gefiltert) */
+/** Aktive Offers nach Kategorien */
 export async function getActiveOffersByCategories(
   supabase: SupabaseClient,
   categories: Array<
@@ -87,7 +86,6 @@ export async function getActiveOffersByCategories(
     .in('category', categories)
     .order('created_at', { ascending: false })
     .limit(limit)
-
   if (error) throw error
   return (data as DbOffer[]).map(mapDbToOffer)
 }
@@ -102,23 +100,78 @@ export async function getOfferById(
     .select(baseSelect)
     .eq('id', id)
     .maybeSingle()
-
   if (error) throw error
   return data ? mapDbToOffer(data as DbOffer) : null
 }
 
-/** Hängt ?subid=<userId>|<offerId> an eine Affiliate-URL an */
+/* ===========================
+   Affiliate-URL-Helfer
+   =========================== */
+
+type SubIdParts = {
+  userId: string
+  offerId: string
+  influencerId?: string | null
+  /** Optional: Admin-SubID (profiles.partner_subid) – hat Vorrang */
+  subId?: string | null
+  /** Optional: Click-Token (falls vorhanden) */
+  clickToken?: string | null
+}
+
+/** Baut den SubID-Token: subId > clickToken > user|offer|influencer */
+function buildSubId(parts: SubIdParts): string {
+  const s = (parts.subId || '').trim()
+  if (s.length > 0) return s
+  const c = (parts.clickToken || '').trim()
+  if (c.length > 0) return c
+  const infl = parts.influencerId ?? 'none'
+  return `${parts.userId}|${parts.offerId}|${infl}`
+}
+
+/** Param-Name je Netzwerk */
+function detectSubIdParam(hostname: string): 'clickref' | 'subid' | 'smc1' {
+  const h = hostname.toLowerCase()
+  if (h.includes('awin1.com')) return 'clickref'                 // AWIN
+  if (h.includes('financeads.net')) return 'subid'               // financeAds
+  if (h.includes('belboon') || h.includes('janus.r.jakuli.com')) return 'smc1' // belboon
+  return 'subid' // Fallback
+}
+
+/** Baut die Affiliate-URL mit SubID & optional influencer ref */
 export function buildAffiliateUrl(
   baseUrl: string | null | undefined,
-  userId: string,
-  offerId: string
+  parts: SubIdParts
 ): string | null {
   if (!baseUrl) return null
   try {
     const u = new URL(baseUrl)
-    u.searchParams.set('subid', `${userId}|${offerId}`)
+
+    // 1) SubID setzen (netzwerkabhängiger Param)
+    const key = detectSubIdParam(u.hostname)
+    const token = buildSubId(parts)
+    u.searchParams.set(key, token)
+
+    // 2) (Optional) Influencer separat mitgeben – falls euer Netzwerk 'ref' o.ä. nutzt
+    if (parts.influencerId) {
+      // Param ggf. anpassen (ref / aff_id / publisherId ...)
+      u.searchParams.set('ref', parts.influencerId)
+    }
+
+    // 3) Immer nützliche Standard-Parameter (internes Debugging)
+    u.searchParams.set('uid', parts.userId)
+    u.searchParams.set('oid', parts.offerId)
+
     return u.toString()
   } catch {
     return baseUrl ?? null
   }
+}
+
+/** Legacy-Wrapper (Kompatibilität) */
+export function buildAffiliateUrlLegacy(
+  baseUrl: string | null | undefined,
+  userId: string,
+  offerId: string
+): string | null {
+  return buildAffiliateUrl(baseUrl, { userId, offerId })
 }

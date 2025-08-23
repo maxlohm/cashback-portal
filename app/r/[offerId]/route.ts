@@ -7,8 +7,7 @@ import { buildAffiliateUrl } from '@/utils/offers'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const UUIDV4 =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUIDV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function readCookieFromReq(req: Request, name: string): string | null {
   const cookieHeader = req.headers.get('cookie') || ''
@@ -31,17 +30,17 @@ export async function GET(req: Request, ctx: any) {
   const url = new URL(req.url)
   const dbg = url.searchParams.get('dbg') === '1'
 
-  // 1) Partner-Ref aus Query validieren
+  // 1) ?ref= als Influencer-Id prüfen
   const ref = url.searchParams.get('ref')
-  const refPartnerId = ref && UUIDV4.test(ref) ? ref : null
+  const refInfluencerId = ref && UUIDV4.test(ref) ? ref : null
 
-  // 2) Auth prüfen (Login erzwingen)
+  // 2) Auth
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     const loginUrl = new URL('/login', url)
-    loginUrl.searchParams.set('next', `/r/${offerId}${refPartnerId ? `?ref=${refPartnerId}` : ''}`)
+    loginUrl.searchParams.set('next', `/r/${offerId}${refInfluencerId ? `?ref=${refInfluencerId}` : ''}`)
     const res = NextResponse.redirect(loginUrl, 302)
-    if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
+    if (refInfluencerId) res.cookies.set('bn_ref', refInfluencerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
     return res
   }
 
@@ -60,22 +59,22 @@ export async function GET(req: Request, ctx: any) {
       : NextResponse.redirect(loc, 302)
   }
 
-  // 4) Partner-Attribution: Query → Cookie → Profil
+  // 4) Influencer bestimmen: Query → Cookie → Profil.partner_id
   const refFromCookie = readCookieFromReq(req, 'bn_ref')
-  let partnerId: string | null = refPartnerId ?? refFromCookie
-  if (!partnerId) {
+  let influencerId: string | null = refInfluencerId ?? refFromCookie
+  if (!influencerId) {
     const { data: p } = await supabase
       .from('profiles')
       .select('partner_id')
       .eq('id', user.id)
       .maybeSingle()
-    partnerId = (p as any)?.partner_id ?? null
+    influencerId = (p as any)?.partner_id ?? null
   }
 
-  // 5) Idempotenter Click
+  // 5) Idempotenter Click (influencer_id schreiben)
   const nowIso = new Date().toISOString()
   const row: Record<string, any> = { user_id: user.id, offer_id: offerId, clicked_at: nowIso }
-  if (partnerId) row.partner_id = partnerId
+  if (influencerId) row.influencer_id = influencerId
 
   let mode: 'insert' | 'update' = 'insert'
   let err: string | null = null
@@ -86,7 +85,7 @@ export async function GET(req: Request, ctx: any) {
       mode = 'update'
       const upd = await supabase
         .from('clicks')
-        .update({ clicked_at: nowIso, partner_id: partnerId ?? null })
+        .update({ clicked_at: nowIso, influencer_id: influencerId ?? null })
         .eq('user_id', user.id)
         .eq('offer_id', offerId)
         .or('redeemed.eq.false,redeemed.is.null')
@@ -96,31 +95,47 @@ export async function GET(req: Request, ctx: any) {
     }
   }
 
+  // 6) Den neuesten Click holen (für den subid_token)
+  const { data: latest } = await supabase
+    .from('clicks')
+    .select('id, subid_token, user_id, offer_id, clicked_at, redeemed, influencer_id')
+    .eq('user_id', user.id)
+    .eq('offer_id', offerId)
+    .order('clicked_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const clickToken = (latest as any)?.subid_token ?? null
+
   if (dbg) {
-    const { data: latest } = await supabase
-      .from('clicks')
-      .select('id, user_id, offer_id, clicked_at, redeemed, partner_id')
-      .eq('user_id', user.id)
-      .eq('offer_id', offerId)
-      .order('clicked_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    const dest = buildAffiliateUrl(offer.affiliate_url, {
+      userId: user.id,
+      offerId,
+      influencerId,
+      clickToken, // 👈 jetzt der Click-Token als SubID
+    }) || null
 
     return NextResponse.json({
       ok: true,
       user: user.id,
       offerId,
-      ref: refPartnerId,
-      partnerIdUsed: partnerId,
+      influencerIdUsed: influencerId,
       mode,
       err,
       row: latest ?? null,
+      dest,
     })
   }
 
-  // 6) Redirect + Ref-Cookie setzen
-  const dest = buildAffiliateUrl(offer.affiliate_url, user.id, offerId) || '/'
+  // 7) Redirect + Cookie
+  const dest = buildAffiliateUrl(offer.affiliate_url, {
+    userId: user.id,
+    offerId,
+    influencerId,
+    clickToken, // 👈 jetzt der Click-Token als SubID
+  }) || '/'
+
   const res = NextResponse.redirect(dest, 302)
-  if (refPartnerId) res.cookies.set('bn_ref', refPartnerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
+  if (refInfluencerId) res.cookies.set('bn_ref', refInfluencerId, { maxAge: 60 * 60 * 24 * 30, path: '/' })
   return res
 }
