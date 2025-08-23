@@ -8,6 +8,7 @@ type Balance = { pending_balance: number; available_balance: number; total_paid:
 type LeadRow = { id: string; confirmed: boolean; payout_ready: boolean | null; amount: number; confirmed_at: string | null; offer_id: string }
 type RedemptionRow = { id: string; amount: number; status: string; provider: string | null; sku: string | null; created_at: string }
 type InvoiceRow = { id: string; status: string; created_at: string; paid_at: string | null; net_amount: number; vat_rate: number; vat_amount: number; gross_amount: number }
+type OfferLite = { id: string; title: string }
 
 export default function PartnerDashboardClient({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClientComponentClient(), [])
@@ -20,6 +21,12 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
   const [vatRate, setVatRate] = useState<number>(19) // UI preview only
   const [error, setError] = useState<string | null>(null)
 
+  // Promo-Links state
+  const [offers, setOffers] = useState<OfferLite[]>([])
+  const [selectedOffer, setSelectedOffer] = useState<string>('')
+  const [mySubId, setMySubId] = useState<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+
   async function reload() {
     setLoading(true)
     setError(null)
@@ -27,15 +34,16 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
       const [statsRes, balRes, profRes] = await Promise.all([
         supabase.rpc('get_partner_stats') as any,
         supabase.rpc('get_user_balance') as any,
-        supabase.from('profiles').select('vat_rate').eq('id', userId).maybeSingle(),
+        supabase.from('profiles').select('vat_rate, partner_subid').eq('id', userId).maybeSingle(),
       ])
 
       const s: Stats = statsRes?.data?.[0] ?? { total_clicks: 0, total_leads: 0, total_earnings: 0 }
       const b: Balance = balRes?.data?.[0] ?? { pending_balance: 0, available_balance: 0, total_paid: 0 }
       setStats(s); setBalance(b)
       setVatRate(profRes.data?.vat_rate ?? 19)
+      setMySubId(profRes.data?.partner_subid ?? null)
 
-      const [{ data: leadsData }, { data: redData }, { data: invData }] = await Promise.all([
+      const [{ data: leadsData }, { data: redData }, { data: invData }, { data: offerRows }] = await Promise.all([
         supabase
           .from('leads')
           .select('id, amount, confirmed, payout_ready, confirmed_at, click_id, clicks!inner(user_id, offer_id)')
@@ -52,6 +60,12 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
           .select('id, status, created_at, paid_at, net_amount, vat_rate, vat_amount, gross_amount')
           .order('created_at', { ascending: false })
           .limit(50),
+        supabase
+          .from('offers')
+          .select('id, title')
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .limit(100),
       ])
 
       const rows: LeadRow[] = (leadsData ?? []).map((r: any) => ({
@@ -66,6 +80,10 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
       setLeads(rows)
       setRedemptions((redData ?? []) as any)
       setInvoices((invData ?? []) as any)
+
+      const list = (offerRows || []) as OfferLite[]
+      setOffers(list)
+      if (!selectedOffer && list.length) setSelectedOffer(list[0].id)
     } catch (e: any) {
       setError(e?.message ?? String(e))
     } finally {
@@ -80,11 +98,68 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
 
   const available = Number(balance?.available_balance ?? 0)
 
+  // Promo-Links (Client-Origin)
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const landingLink = userId ? `${origin}/?ref=${userId}`.replace('//?', '/?') : ''
+  const deepLink = (userId && selectedOffer) ? `${origin}/r/${selectedOffer}?ref=${userId}` : ''
+  const copy = async (txt: string) => {
+    try { await navigator.clipboard.writeText(txt); setFlash('Link kopiert'); setTimeout(() => setFlash(null), 1200) } catch {}
+  }
+
   return (
     <div className="p-6 space-y-8">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Partner‑Dashboard</h1>
+        <h1 className="text-2xl font-semibold">Partner-Dashboard</h1>
       </header>
+
+      {/* Promo-Links */}
+      <section className="p-4 border rounded-2xl bg-white shadow-sm space-y-3">
+        <h2 className="text-lg font-semibold">Meine Promo-Links</h2>
+
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600">Landing-Link (für Bio/Linktree)</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="px-2 py-1 bg-gray-50 border rounded break-all">{landingLink || '—'}</code>
+            <button
+              className="px-3 py-1 border rounded bg-white hover:shadow disabled:opacity-50"
+              onClick={() => copy(landingLink)}
+              disabled={!landingLink}
+            >
+              kopieren
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-sm text-gray-600">Deal-Link (konkretes Angebot)</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              className="border p-2 rounded min-w-[220px]"
+              value={selectedOffer}
+              onChange={e => setSelectedOffer(e.target.value)}
+            >
+              {offers.length === 0
+                ? <option value="">Keine aktiven Angebote</option>
+                : offers.map(o => <option key={o.id} value={o.id}>{o.title}</option>)
+              }
+            </select>
+            <code className="px-2 py-1 bg-gray-50 border rounded break-all">{deepLink || '—'}</code>
+            <button
+              className="px-3 py-1 border rounded bg-white hover:shadow disabled:opacity-50"
+              onClick={() => copy(deepLink)}
+              disabled={!deepLink}
+            >
+              kopieren
+            </button>
+          </div>
+          <div className="text-[11px] text-gray-500">
+            Deine Sub-ID (<code>{mySubId || '—'}</code>) wird beim Redirect automatisch angehängt
+            (AWIN=clickref, FinanceAds=subid, Belboon=smc1).
+          </div>
+        </div>
+
+        {flash && <div className="text-green-600 text-sm">{flash}</div>}
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPI title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
@@ -114,7 +189,7 @@ export default function PartnerDashboardClient({ userId }: { userId: string }) {
             dt(r.created_at),
             cap(r.status),
             fmt(r.net_amount),
-            `${fmt(r.vat_amount)} (${r.vat_rate} %)`,
+            `${fmt(r.vat_amount)} (${r.vat_rate} %)`,
             fmt(r.gross_amount),
             r.paid_at ? dt(r.paid_at) : '—'
           ])}
@@ -220,7 +295,7 @@ function InvoiceForm({ available, vatRate, onCreated }: { available: number; vat
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
         <MiniStat label="Netto" value={fmt(eff.net)} />
-        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
+        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
         <MiniStat label="Brutto" value={fmt(eff.gross)} />
         <MiniStat label="Modus" value={mode === 'gross' ? 'Brutto → Netto' : 'Netto → Brutto'} />
       </div>
@@ -235,11 +310,11 @@ function VatBox({ available, vatRate }: { available: number; vatRate: number }) 
     <Card title="MwSt.-Vorschau (auszahlbar)">
       <div className="grid grid-cols-3 gap-2">
         <MiniStat label="Netto" value={fmt(eff.net)} />
-        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
+        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
         <MiniStat label="Brutto" value={fmt(eff.gross)} />
       </div>
       <p className="text-xs text-gray-500 mt-2">
-        Hinweis: Der angewendete Satz kommt aus deinem Profil. Standard ist 19 %.
+        Hinweis: Der angewendete Satz kommt aus deinem Profil. Standard ist 19 %.
       </p>
     </Card>
   )
