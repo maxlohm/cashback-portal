@@ -11,46 +11,62 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isResetting, setIsResetting] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setError(null); setMessage(null); setLoading(true)
+    try {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInErr) {
+        // Häufige Fälle klar anzeigen
+        if (signInErr.message?.toLowerCase().includes('email not confirmed')) {
+          setError('Bitte bestätige zuerst deine E-Mail. Prüfe deinen Posteingang.')
+        } else if (signInErr.message?.toLowerCase().includes('invalid login credentials')) {
+          setError('E-Mail oder Passwort ist falsch.')
+        } else {
+          setError('Login fehlgeschlagen. Bitte Eingaben prüfen.')
+        }
+        return
+      }
 
-    if (error) {
-      setError('Login fehlgeschlagen. Bitte prüfe deine Eingaben.')
-    } else {
+      // Session/User laden
       const { data: { user } } = await supabase.auth.getUser()
-
       if (user) {
+        // Optionale Partner-Attribution aus localStorage übernehmen
         const refPartnerId = localStorage.getItem('ref_partner_id')
-
         if (refPartnerId) {
-          const { data: profile } = await supabase
+          // Profile aktualisieren (nur wenn leer)
+          await supabase
             .from('profiles')
-            .select('partner_id')
+            .update({ partner_id: refPartnerId })
             .eq('id', user.id)
-            .single()
-
-          if (!profile?.partner_id) {
-            await supabase.from('profiles').update({
-              partner_id: refPartnerId
-            }).eq('id', user.id)
-          }
+            .is('partner_id', null) // nur wenn noch nicht gesetzt
         }
       }
 
-      router.push('/')
+      router.replace('/') // oder '/dashboard'
+    } catch (e) {
+      setError('Unerwarteter Fehler beim Login.')
+    } finally {
+      setLoading(false)
     }
   }
 
   const handlePasswordReset = async () => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/reset-password`,
-    })
-
-    if (error) {
-      setError('Fehler beim Versenden der Zurücksetzungs-Mail.')
-    } else {
+    setError(null); setMessage(null); setLoading(true)
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${location.origin}/reset-password`,
+      })
+      if (resetErr) {
+        setError('Fehler beim Versenden der Zurücksetzungs-Mail.')
+        return
+      }
       setMessage('E-Mail zum Zurücksetzen des Passworts wurde gesendet.')
+    } catch {
+      setError('Unerwarteter Fehler beim Zurücksetzen.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -79,15 +95,17 @@ export default function LoginPage() {
 
         {!isResetting ? (
           <button
-            className="w-full bg-[#003b5b] text-white py-2 rounded hover:bg-[#005b91] text-sm font-medium transition"
+            className="w-full bg-[#003b5b] text-white py-2 rounded hover:bg-[#005b91] text-sm font-medium transition disabled:opacity-60"
             onClick={handleLogin}
+            disabled={loading}
           >
-            Einloggen
+            {loading ? 'Wird eingeloggt…' : 'Einloggen'}
           </button>
         ) : (
           <button
-            className="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600 text-sm font-medium transition"
+            className="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600 text-sm font-medium transition disabled:opacity-60"
             onClick={handlePasswordReset}
+            disabled={loading || !email}
           >
             Passwort zurücksetzen
           </button>

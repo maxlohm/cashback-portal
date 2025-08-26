@@ -23,17 +23,18 @@ export default function Header() {
       if (user) {
         setLoggedIn(true)
 
-        // Partner-Check (deine bestehende Logik)
+        // Partner-Check über user_id
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
-          .eq('id', user.id)
+          .eq('user_id', user.id)       // Fix: user_id statt id
           .maybeSingle()
-        if (partner) setIsPartner(true)
 
-        // ✅ Admin-Check: über RPC (security definer), unabhängig von RLS
+        // Admin-Check über RPC
         const { data: isAdminFlag } = await supabase.rpc('is_admin')
-        if (isAdminFlag === true) setIsAdmin(true)
+
+        setIsPartner(!!partner || isAdminFlag === true) // Admin darf auch Partner-Dashboard sehen
+        setIsAdmin(isAdminFlag === true)
       }
 
       setLoadingAuth(false)
@@ -81,7 +82,7 @@ export default function Header() {
 
                   {isPartner && (
                     <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">
-                      Partner‑Dashboard
+                      Partner-Dashboard
                     </Link>
                   )}
 
@@ -89,7 +90,7 @@ export default function Header() {
                     <>
                       <div className="px-4 pt-2 text-xs text-gray-500">Admin</div>
                       <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
-                        Admin‑Dashboard
+                        Admin-Dashboard
                       </Link>
                       <Link href="/admin/users" className="block px-4 py-2 hover:bg-gray-100">
                         Nutzerverwaltung

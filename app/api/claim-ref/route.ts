@@ -5,7 +5,7 @@ import { cookies as nextCookies } from 'next/headers'
 
 const UUIDV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function getCookie(req: Request, name: string): string | null {
+function readCookie(req: Request, name: string): string | null {
   const header = req.headers.get('cookie') ?? ''
   for (const part of header.split(';')) {
     const [k, ...rest] = part.trim().split('=')
@@ -19,32 +19,42 @@ function getCookie(req: Request, name: string): string | null {
 async function handler(req: Request) {
   const supabase = createRouteHandlerClient({ cookies: nextCookies })
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ ok: false, error: 'not-authenticated' }, { status: 401 })
+  if (!user) {
+    return NextResponse.json({ ok: false, error: 'not-authenticated' }, { status: 401 })
+  }
 
-  const ref = getCookie(req, 'bn_ref')
+  // ref aus Query ODER Cookie
+  const url = new URL(req.url)
+  const refFromQuery = url.searchParams.get('ref')
+  const refFromCookie = readCookie(req, 'bn_ref')
+  const ref = refFromQuery || refFromCookie
+
   if (!ref || !UUIDV4.test(ref)) {
-    return NextResponse.json({ ok: true, action: 'noop', reason: 'no-valid-cookie' })
+    return NextResponse.json({ ok: true, action: 'noop', reason: 'no-valid-ref' })
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('partner_id')
-    .eq('id', user.id)
-    .maybeSingle()
+  // Optional: Rate-Limit (wenn throttle_touch vorhanden)
+  // const key = `claim-ref:${user.id}:${ref}`
+  // const { data: allowed } = await supabase.rpc('throttle_touch', { p_key: key, window_seconds: 10 })
+  // if (allowed === false) return NextResponse.json({ ok: false, error: 'rate-limited' }, { status: 429 })
 
-  if (!profile) return NextResponse.json({ ok: false, error: 'profile-not-found' }, { status: 404 })
-  if (profile.partner_id) {
-    return NextResponse.json({ ok: true, action: 'noop', reason: 'already-set', partner_id: profile.partner_id })
+  // sichere, idempotente Zuordnung via RPC
+  const { data, error } = await supabase.rpc('set_user_partner', { p_partner: ref })
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 400 })
   }
 
-  const { error: updErr } = await supabase
-    .from('profiles')
-    .update({ partner_id: ref })
-    .eq('id', user.id)
+  // Nach erfolgreichem Setzen Cookie entfernen
+  if (data?.action === 'set' && refFromCookie) {
+    const res = NextResponse.json(data)
+    // Cookie löschen
+    res.headers.append('Set-Cookie', `bn_ref=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly`)
+    return res
+  }
 
-  if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 403 })
-  return NextResponse.json({ ok: true, action: 'set', partner_id: ref })
+  // Schon gesetzt? 200 statt 409, um noise zu vermeiden
+  return NextResponse.json(data)
 }
 
-export async function GET(req: Request) { return handler(req) }
-export async function POST(req: Request) { return handler(req) }
+export const GET = handler
+export const POST = handler

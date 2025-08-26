@@ -15,81 +15,65 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [consent, setConsent] = useState(false)
   const [policyConsent, setPolicyConsent] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const validatePassword = (pw: string) => {
-    const pattern = /^(?=.*[A-Z])(?=.*\d).{8,}$/
-    return pattern.test(pw)
-  }
+  const validatePassword = (pw: string) => /^(?=.*[A-Z])(?=.*\d).{8,}$/.test(pw)
 
   const handleRegister = async () => {
-    setError(null)
-    setSuccess(null)
+    setError(null); setSuccess(null)
 
     if (!username || !firstName || !lastName || !email || !password) {
       setError('Bitte fülle alle Felder aus.')
       return
     }
-
     if (!validatePassword(password)) {
-      setError('Passwort muss mindestens 8 Zeichen lang sein, eine Zahl und einen Großbuchstaben enthalten.')
+      setError('Passwort: min. 8 Zeichen, eine Zahl und ein Großbuchstabe.')
       return
     }
-
     if (!consent) {
-      setError('Bitte akzeptiere die Datenschutzbestimmungen und AGB.')
+      setError('Bitte AGB & Datenschutz akzeptieren.')
       return
     }
-
     if (!policyConsent) {
       setError('Bitte bestätige, dass du nur ein Konto nutzt.')
       return
     }
 
-    const { data: existingUsers, error: fetchError } = await supabase
-      .from('profiles')
-      .select('id')
-      .or(`username.eq.${username},email.eq.${email}`)
-
-    if (fetchError) {
-      setError('Fehler beim Prüfen bestehender Benutzer.')
-      return
-    }
-
-    if (existingUsers && existingUsers.length > 0) {
-      setError('Benutzername oder E-Mail ist bereits registriert.')
-      return
-    }
-
-    const { error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username,
-          firstName,
-          lastName,
+    setLoading(true)
+    try {
+      // Kein Pre-Select auf profiles (RLS / Spaltenproblem). E-Mail-Unique prüft Supabase Auth.
+      const { error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            firstName,
+            lastName,
+          },
+          // Falls du Magic Link bevorzugst: emailRedirectTo: `${location.origin}/auth/callback`
         },
-      },
-    })
+      })
 
-    if (signupError) {
-      setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
-      return
-    }
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (user) {
-      const refPartnerId = localStorage.getItem('ref_partner_id')
-
-      if (refPartnerId) {
-        await supabase.from('profiles').update({
-          partner_id: refPartnerId
-        }).eq('id', user.id)
+      if (signupError) {
+        const msg = signupError.message?.toLowerCase() ?? ''
+        if (msg.includes('user already registered') || msg.includes('already registered')) {
+          setError('Diese E-Mail ist bereits registriert.')
+        } else {
+          setError('Registrierung fehlgeschlagen. Bitte erneut versuchen.')
+        }
+        return
       }
-    }
 
-    setSuccess('✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail-Adresse über den Link in deinem Posteingang.')
+      // Hinweis: Nach signUp gibt es meist keine aktive Session (E-Mail-Bestätigung erforderlich).
+      // Partner-Attribution bitte nach erstem Login vornehmen (siehe Login-Seite).
+
+      setSuccess('✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail über den Link im Posteingang.')
+    } catch {
+      setError('Unerwarteter Fehler bei der Registrierung.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -156,15 +140,16 @@ export default function RegisterPage() {
             className="mt-1 mr-2 accent-[#003b5b]"
           />
           <span>
-            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei Verstoß können alle Accounts gesperrt und Prämien storniert werden.
+            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei Verstoß können Accounts gesperrt und Prämien storniert werden.
           </span>
         </label>
 
         <button
-          className="w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 rounded-lg font-medium transition"
+          className="w-full bg-[#003b5b] hover:bg-[#005b91] text-white py-2 rounded-lg font-medium transition disabled:opacity-60"
           onClick={handleRegister}
+          disabled={loading}
         >
-          Registrieren
+          {loading ? 'Wird registriert…' : 'Registrieren'}
         </button>
 
         {error && <p className="text-red-600 mt-3 text-sm text-center">{error}</p>}
