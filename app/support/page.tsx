@@ -19,18 +19,29 @@ export default function SupportClientForm() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      const user = data?.user
+      const { data: uRes } = await supabase.auth.getUser()
+      const user = uRes?.user
       if (user) {
         setLoggedIn(true)
-        const fullName = user.user_metadata?.full_name || ''
-        const [first, ...last] = fullName.split(' ')
         setFormData((prev) => ({
           ...prev,
           email: user.email || '',
-          firstName: first || '',
-          lastName: last?.join(' ') || '',
         }))
+
+        // Vorname & Nachname aus profiles holen
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!error && profile) {
+          setFormData((prev) => ({
+            ...prev,
+            firstName: profile.first_name || '',
+            lastName: profile.last_name || '',
+          }))
+        }
       }
     }
     fetchUser()
