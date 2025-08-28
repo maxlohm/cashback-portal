@@ -3,7 +3,7 @@
 
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { useMemo, KeyboardEvent } from 'react'
+import { useMemo } from 'react'
 
 type DealCardProps = {
   id: string
@@ -11,7 +11,6 @@ type DealCardProps = {
   description?: string
   reward: number
   image?: string
-  /** Interne Detail-URL; wenn nicht gesetzt -> /angebot/<id> */
   url?: string
   onClick?: () => void
   className?: string
@@ -35,28 +34,16 @@ export default function DealCard({
     router.push(targetUrl)
   }
 
-  const onKey = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      go()
-    }
-  }
-
   return (
     <article
-      role="button"
-      tabIndex={0}
-      onKeyDown={onKey}
-      onClick={go}
       aria-label={`Angebot: ${name}`}
       className={[
         'h-full group flex flex-col rounded-2xl border border-gray-200 bg-white',
         'shadow-sm hover:shadow-md transition-shadow focus:outline-none',
-        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#ca4b24]',
         className,
       ].join(' ')}
     >
-      {/* Bild mit konsistenter Höhe/Ratio */}
+      {/* Bild */}
       <div className="p-4 pb-0">
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border bg-white">
           <Image
@@ -65,7 +52,6 @@ export default function DealCard({
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
             className="object-contain"
-            priority={false}
           />
         </div>
       </div>
@@ -80,7 +66,6 @@ export default function DealCard({
           <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
         )}
 
-        {/* Spacer drückt CTA nach unten, damit Buttons bündig sind */}
         <div className="mt-auto" />
 
         {/* CTA-Zeile */}
@@ -91,10 +76,7 @@ export default function DealCard({
 
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              go()
-            }}
+            onClick={go}
             className="h-10 px-4 inline-flex items-center justify-center rounded-lg bg-[#ca4b24] text-white text-sm sm:text-base font-medium hover:bg-[#a33d1e] transition"
             aria-label={`Jetzt sichern: ${name}`}
           >
