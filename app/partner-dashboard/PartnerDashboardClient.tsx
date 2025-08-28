@@ -2,415 +2,501 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 type Stats = { total_clicks: number; total_leads: number; total_earnings: number | null }
 type Balance = { pending_balance: number; available_balance: number; total_paid: number }
-type LeadRow = { id: string; confirmed: boolean; payout_ready: boolean | null; amount: number; confirmed_at: string | null; offer_id: string }
+type LeadRow = {
+  id: string
+  amount: number | null
+  confirmed: boolean
+  payout_ready: boolean | null
+  confirmed_at: string | null
+  clicked_at: string | null
+  offer_id: string
+  offer_title: string
+}
 type RedemptionRow = { id: string; amount: number; status: string; provider: string | null; sku: string | null; created_at: string }
-type InvoiceRow = { id: string; status: string; created_at: string; paid_at: string | null; net_amount: number; vat_rate: number; vat_amount: number; gross_amount: number }
-type OfferLite = { id: string; title: string }
+type SeriesPoint = { d: string; amount: number }
+type Offer = { id: string; title: string }
 
-export default function PartnerDashboardClient({ userId }: { userId: string }) {
-  const supabase = useMemo(() => createClientComponentClient(), [])
-  const [loading, setLoading] = useState(true)
+const supabase = createClientComponentClient()
+const fmtEUR = (n: number) => `${n.toFixed(2)} €`
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+export default function PartnerDashboardClient() {
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'confirmed' | 'ready'>('all')
+  const [month, setMonth] = useState<string>('all') // 'all' | 'YYYY-MM' | 'custom'
+  const [customFrom, setCustomFrom] = useState<string>('')
+  const [customTo, setCustomTo] = useState<string>('')
+
+  // Data
   const [stats, setStats] = useState<Stats | null>(null)
   const [balance, setBalance] = useState<Balance | null>(null)
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([])
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([])
-  const [vatRate, setVatRate] = useState<number>(19) // UI preview only
+  const [series, setSeries] = useState<SeriesPoint[]>([])
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
+  const [vatRate, setVatRate] = useState<number>(19)
+
+  // UI
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [openPayout, setOpenPayout] = useState(true)
+  const [openLeads, setOpenLeads] = useState(true)
+  const [openPayouts, setOpenPayouts] = useState(false)
+  const [openLinks, setOpenLinks] = useState(true)
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
 
-  // Promo-Links state
-  const [offers, setOffers] = useState<OfferLite[]>([])
-  const [selectedOffer, setSelectedOffer] = useState<string>('')
-  const [mySubId, setMySubId] = useState<string | null>(null)
-  const [flash, setFlash] = useState<string | null>(null)
+  // month -> from/to
+  const { fromDate, toDate } = useMemo(() => {
+    if (month === 'all') return { fromDate: null as Date | null, toDate: null as Date | null }
+    if (month === 'custom') {
+      const from = customFrom ? new Date(customFrom) : null
+      const to = customTo ? new Date(customTo) : null
+      return { fromDate: from, toDate: to }
+    }
+    const [y, m] = month.split('-').map(Number)
+    return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
+  }, [month, customFrom, customTo])
 
-  async function reload() {
+  // initial: user, offers, VAT
+  useEffect(() => {
+    ;(async () => {
+      const { data: u } = await supabase.auth.getUser()
+      setUserId(u.user?.id ?? null)
+
+      // aktive Offers (für Promo-Links)
+      const { data: off } = await supabase
+        .from('offers')
+        .select('id,title,active')
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+      const list = (off ?? []).map(o => ({ id: o.id as string, title: (o as any).title as string }))
+      setOffers(list)
+      setSelectedOfferId(list[0]?.id ?? null)
+
+      // VAT-Rate aus Profil (fallback 19 %)
+      const { data: prof } = await supabase.from('profiles').select('vat_rate').maybeSingle()
+      if (prof?.vat_rate != null) setVatRate(Number(prof.vat_rate))
+    })()
+  }, [])
+
+  const refresh = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [statsRes, balRes, profRes] = await Promise.all([
-        supabase.rpc('get_partner_stats') as any,
-        supabase.rpc('get_user_balance') as any,
-        supabase.from('profiles').select('vat_rate, partner_subid').eq('id', userId).maybeSingle(),
-      ])
+     // in PartnerDashboardClient.tsx, im refresh():
+const leadParams = {
+  p_status: statusFilter,
+  p_from: fromDate ? fromDate.toISOString().slice(0,10) : null,
+  p_to:   toDate   ? toDate.toISOString().slice(0,10)   : null,
+  p_limit: 500,
+  p_offset: 0,
+}
+const tsParams = { p_from: leadParams.p_from, p_to: leadParams.p_to }
 
-      const s: Stats = statsRes?.data?.[0] ?? { total_clicks: 0, total_leads: 0, total_earnings: 0 }
-      const b: Balance = balRes?.data?.[0] ?? { pending_balance: 0, available_balance: 0, total_paid: 0 }
-      setStats(s); setBalance(b)
-      setVatRate(profRes.data?.vat_rate ?? 19)
-      setMySubId(profRes.data?.partner_subid ?? null)
+const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
+  supabase.rpc('get_partner_stats'),
+  supabase.rpc('get_partner_leads', leadParams),
+  supabase.rpc('get_partner_revenue_timeseries', tsParams),
+  supabase.rpc('get_user_balance'),
+  supabase.rpc('get_user_redemptions'),   // <- bleibt gleich
+])
 
-      const [{ data: leadsData }, { data: redData }, { data: invData }, { data: offerRows }] = await Promise.all([
-        supabase
-          .from('leads')
-          .select('id, amount, confirmed, payout_ready, confirmed_at, click_id, clicks!inner(user_id, offer_id)')
-          .eq('clicks.user_id', userId)
-          .order('confirmed_at', { ascending: false })
-          .limit(50) as any,
-        supabase
-          .from('redemptions')
-          .select('id, amount, status, provider, sku, created_at')
-          .order('created_at', { ascending: false })
-          .limit(50),
-        supabase
-          .from('partner_invoices')
-          .select('id, status, created_at, paid_at, net_amount, vat_rate, vat_amount, gross_amount')
-          .order('created_at', { ascending: false })
-          .limit(50),
-        supabase
-          .from('offers')
-          .select('id, title')
-          .eq('active', true)
-          .order('created_at', { ascending: false })
-          .limit(100),
-      ])
+      if (sStats.error) throw sStats.error
+      if (sLeads.error) throw sLeads.error
+      if (sTs.error) throw sTs.error
+      if (sBal.error) throw sBal.error
+      if (sRed.error) throw sRed.error
 
-      const rows: LeadRow[] = (leadsData ?? []).map((r: any) => ({
-        id: r.id,
-        amount: r.amount,
-        confirmed: r.confirmed,
-        payout_ready: r.payout_ready,
-        confirmed_at: r.confirmed_at,
-        offer_id: r.clicks?.offer_id ?? '—',
-      }))
-
-      setLeads(rows)
-      setRedemptions((redData ?? []) as any)
-      setInvoices((invData ?? []) as any)
-
-      const list = (offerRows || []) as OfferLite[]
-      setOffers(list)
-      if (!selectedOffer && list.length) setSelectedOffer(list[0].id)
+      setStats(sStats.data as Stats)
+      setLeads(((sLeads.data ?? []) as any[]).map((r: any) => ({ ...r })))
+      setSeries(((sTs.data ?? []) as any[]).map(r => ({ d: r.d, amount: Number(r.amount || 0) })))
+      setBalance(sBal.data as Balance)
+      setRedemptions((sRed.data ?? []) as RedemptionRow[])
     } catch (e: any) {
-      setError(e?.message ?? String(e))
+      setError(e.message ?? 'Fehler beim Laden')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { reload() }, [supabase, userId])
+  useEffect(() => {
+    refresh()
+  }, [statusFilter, month, customFrom, customTo])
 
-  if (loading) return <Skeleton />
-  if (error)   return <div className="p-6 text-red-600">{error}</div>
+  // KPIs
+  const kpis = useMemo(() => {
+    const open = leads.filter(x => !x.confirmed).length
+    const confirmed = leads.filter(x => x.confirmed).length
+    const ready = leads.filter(x => x.payout_ready).length
+    const sumReady = leads.filter(x => x.payout_ready).reduce((a, b) => a + Number(b.amount || 0), 0)
+    const sumPeriod = leads.reduce((a, b) => a + Number(b.amount || 0), 0)
+    return { open, confirmed, ready, sumReady, sumPeriod }
+  }, [leads])
 
-  const available = Number(balance?.available_balance ?? 0)
+  // Top Offers
+  const topOffers = useMemo(() => {
+    const m = new Map<string, { title: string; sum: number; count: number }>()
+    for (const l of leads) {
+      const key = l.offer_id
+      const cur = m.get(key) ?? { title: l.offer_title || '—', sum: 0, count: 0 }
+      cur.sum += Number(l.amount || 0)
+      cur.count += 1
+      m.set(key, cur)
+    }
+    return [...m.entries()]
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.sum - a.sum)
+      .slice(0, 5)
+  }, [leads])
 
-  // Promo-Links (Client-Origin)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const landingLink = userId ? `${origin}/?ref=${userId}`.replace('//?', '/?') : ''
-  const deepLink = (userId && selectedOffer) ? `${origin}/r/${selectedOffer}?ref=${userId}` : ''
-  const copy = async (txt: string) => {
-    try { await navigator.clipboard.writeText(txt); setFlash('Link kopiert'); setTimeout(() => setFlash(null), 1200) } catch {}
+  // VAT-Vorschau
+  const vatPreview = useMemo(() => {
+    const gross = balance?.available_balance ?? 0
+    const net = gross / (1 + vatRate / 100)
+    const vat = gross - net
+    return { gross, net, vat }
+  }, [balance, vatRate])
+
+  async function requestPayout() {
+    const { error } = await supabase.rpc('create_redemption_request', {})
+    if (error) {
+      alert(`Auszahlung nicht möglich: ${error.message}`)
+      return
+    }
+    alert('Auszahlung beantragt – wir melden uns.')
+    refresh()
   }
 
+  function csvExport() {
+    const rows = [
+      ['Datum', 'Offer', 'Status', 'Betrag'],
+      ...leads.map(l => {
+        const date = l.confirmed_at || l.clicked_at || ''
+        const status = l.payout_ready ? 'auszahlbar' : l.confirmed ? 'bestätigt' : 'offen'
+        return [date, l.offer_title || '', status, String(Number(l.amount || 0).toFixed(2)).replace('.', ',')]
+      }),
+    ]
+    const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  const landingLink = userId ? `${siteUrl}/?ref=${userId}` : ''
+  const dealLink = (offerId: string | null) =>
+    userId && offerId ? `${siteUrl}/r/${offerId}?ref=${userId}` : ''
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {}
+  }
+
+  const last12 = useMemo(() => {
+    const arr: string[] = []
+    const d = new Date()
+    for (let i = 0; i < 12; i++) arr.push(monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)))
+    return arr
+  }, [])
+
   return (
-    <div className="p-6 space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Partner-Dashboard</h1>
-      </header>
-
+    <div className="space-y-6">
       {/* Promo-Links */}
-      <section className="p-4 border rounded-2xl bg-white shadow-sm space-y-3">
-        <h2 className="text-lg font-semibold">Meine Promo-Links</h2>
-
-        <div className="space-y-1">
-          <div className="text-sm text-gray-600">Landing-Link (für Bio/Linktree)</div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <code className="px-2 py-1 bg-gray-50 border rounded break-all">{landingLink || '—'}</code>
-            <button
-              className="px-3 py-1 border rounded bg-white hover:shadow disabled:opacity-50"
-              onClick={() => copy(landingLink)}
-              disabled={!landingLink}
-            >
+      <Section title="Meine Promo-Links" open={openLinks} onToggle={() => setOpenLinks(v => !v)}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col md:flex-row gap-2 md:items-center">
+            <label className="text-sm w-44">Landing-Link</label>
+            <input className="flex-1 border rounded px-3 py-2 text-sm" readOnly value={landingLink} />
+            <button className="px-3 py-2 border rounded bg-white" onClick={() => copy(landingLink)}>
               kopieren
             </button>
           </div>
-        </div>
 
-        <div className="space-y-1">
-          <div className="text-sm text-gray-600">Deal-Link (konkretes Angebot)</div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col md:flex-row gap-2 md:items-center">
+            <label className="text-sm w-44">Deal-Link</label>
             <select
-              className="border p-2 rounded min-w-[220px]"
-              value={selectedOffer}
-              onChange={e => setSelectedOffer(e.target.value)}
+              className="border rounded px-2 py-2 text-sm bg-white"
+              value={selectedOfferId ?? ''}
+              onChange={e => setSelectedOfferId(e.target.value)}
             >
-              {offers.length === 0
-                ? <option value="">Keine aktiven Angebote</option>
-                : offers.map(o => <option key={o.id} value={o.id}>{o.title}</option>)
-              }
+              {offers.map(o => (
+                <option key={o.id} value={o.id}>
+                  {o.title}
+                </option>
+              ))}
             </select>
-            <code className="px-2 py-1 bg-gray-50 border rounded break-all">{deepLink || '—'}</code>
+            <input
+              className="flex-1 border rounded px-3 py-2 text-sm"
+              readOnly
+              value={dealLink(selectedOfferId) || ''}
+            />
             <button
-              className="px-3 py-1 border rounded bg-white hover:shadow disabled:opacity-50"
-              onClick={() => copy(deepLink)}
-              disabled={!deepLink}
+              className="px-3 py-2 border rounded bg-white"
+              onClick={() => copy(dealLink(selectedOfferId) || '')}
             >
               kopieren
             </button>
           </div>
-          <div className="text-[11px] text-gray-500">
-            Deine Sub-ID (<code>{mySubId || '—'}</code>) wird beim Redirect automatisch angehängt
-            (AWIN=clickref, FinanceAds=subid, Belboon=smc1).
+
+          <p className="text-xs text-gray-500">
+            Deine Sub-ID wird beim Redirect automatisch angehängt (AWIN=clickref, FinanceAds=subid, Belboon=smc1).
+          </p>
+        </div>
+      </Section>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Kpi title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
+        <Kpi title="Leads bestätigt" value={kpis.confirmed} />
+        <Kpi title="Einnahmen (brutto)" value={fmtEUR(Number(stats?.total_earnings ?? 0))} />
+        <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
+        <Kpi title="Ausgezahlt" value={fmtEUR(Number(balance?.total_paid ?? 0))} />
+      </div>
+
+      {/* Filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`px-3 py-2 rounded border text-sm ${
+              statusFilter === s ? 'bg-[#003b5b] text-white' : 'bg-white'
+            }`}
+          >
+            {s === 'all' ? 'Alle' : s === 'open' ? 'Offen' : s === 'confirmed' ? 'Bestätigt' : 'Auszahlbar'}
+          </button>
+        ))}
+        <select
+          className="border rounded px-2 py-2 text-sm bg-white"
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+        >
+          <option value="all">Alle Monate</option>
+          {last12.map(m => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+          <option value="custom">Benutzerdefiniert…</option>
+        </select>
+        {month === 'custom' && (
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              className="border rounded px-2 py-1 text-sm"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+            />
+            <span className="text-sm">bis</span>
+            <input
+              type="date"
+              className="border rounded px-2 py-1 text-sm"
+              value={customTo}
+              onChange={e => setCustomTo(e.target.value)}
+            />
+            <button className="px-3 py-2 border rounded text-sm bg-white" onClick={refresh}>
+              Anwenden
+            </button>
+          </div>
+        )}
+        <button className="ml-auto px-3 py-2 border rounded text-sm bg-white" onClick={csvExport}>
+          CSV exportieren
+        </button>
+      </div>
+
+      {/* Umsatz-Chart */}
+      <div className="w-full h-64 bg-white border rounded p-3">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={series}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="d" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="amount" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Auszahlung */}
+      <Section title="Auszahlung beantragen" open={openPayout} onToggle={() => setOpenPayout(v => !v)}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Kpi title="Auszahlbares Guthaben (brutto)" value={fmtEUR(vatPreview.gross)} />
+          <Kpi title={`MwSt. (${vatRate} %)`} value={fmtEUR(vatPreview.vat)} />
+          <Kpi title="Netto (Vorschau)" value={fmtEUR(vatPreview.net)} />
+          <div className="flex items-center justify-end">
+            <button
+              className="px-4 py-2 rounded bg-[#003b5b] text-white disabled:opacity-60"
+              onClick={requestPayout}
+              disabled={(balance?.available_balance ?? 0) <= 0}
+            >
+              Auszahlung anfordern
+            </button>
           </div>
         </div>
-
-        {flash && <div className="text-green-600 text-sm">{flash}</div>}
-      </section>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KPI title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
-        <KPI title="Leads bestätigt" value={stats?.total_leads ?? 0} />
-        <KPI title="Einnahmen (brutto)" value={fmt(stats?.total_earnings ?? 0)} />
-        <KPI title="Ausgezahlt" value={fmt(balance?.total_paid ?? 0)} />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card title="Vorgemerktes Guthaben">
-          <div className="text-2xl font-semibold">{fmt(balance?.pending_balance ?? 0)}</div>
-          <p className="text-sm text-gray-500 mt-1">Bestätigte Leads in Sperrfrist</p>
-        </Card>
-        <Card title="Auszahlbares Guthaben">
-          <div className="text-2xl font-semibold">{fmt(available)}</div>
-          <p className="text-sm text-gray-500 mt-1">Abzüglich bereits angeforderter Auszahlungen</p>
-        </Card>
-        <VatBox available={available} vatRate={vatRate} />
-      </div>
-
-      <InvoiceForm available={available} vatRate={vatRate} onCreated={reload} />
-
-      <Section title="Rechnungen">
-        <Table
-          headers={['Datum', 'Status', 'Netto', 'MwSt.', 'Brutto', 'Bezahlt am']}
-          rows={(invoices ?? []).map(r => [
-            dt(r.created_at),
-            cap(r.status),
-            fmt(r.net_amount),
-            `${fmt(r.vat_amount)} (${r.vat_rate} %)`,
-            fmt(r.gross_amount),
-            r.paid_at ? dt(r.paid_at) : '—'
-          ])}
-          empty="Noch keine Rechnungen."
-        />
+        <p className="text-xs text-gray-500 mt-2">
+          Hinweis: Mindestauszahlung & Sperrfristen gelten. Bereits laufende Anträge werden zuerst abgewickelt.
+        </p>
       </Section>
 
-      <Section title="Leads">
-        <Table
-          headers={['Datum', 'Offer', 'Status', 'Betrag']}
-          rows={leads.map(l => [
-            l.confirmed_at ? dt(l.confirmed_at) : '—',
-            <span className="font-mono" key={l.id}>{l.offer_id}</span>,
-            l.confirmed ? (l.payout_ready ? 'auszahlbar' : 'vorgemerkt') : 'offen',
-            fmt(l.amount),
-          ])}
-          empty="Keine Leads vorhanden."
-        />
+      {/* Top-Offers */}
+      <Section title="Top-Offers (Umsatz im Zeitraum)" open onToggle={() => {}}>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {topOffers.length === 0 && <div className="text-sm text-gray-500">Noch keine Daten.</div>}
+          {topOffers.map(t => (
+            <div key={t.id} className="bg-white border rounded p-3">
+              <div className="text-sm font-medium">{t.title}</div>
+              <div className="text-xs text-gray-500">{t.count} Lead(s)</div>
+              <div className="text-lg font-semibold mt-1">{fmtEUR(t.sum)}</div>
+            </div>
+          ))}
+        </div>
       </Section>
 
-      <Section title="Auszahlungen">
-        <Table
-          headers={['Datum', 'Status', 'Provider', 'SKU', 'Betrag']}
-          rows={redemptions.map(r => [
-            dt(r.created_at),
-            cap(r.status),
-            r.provider ?? '—',
-            <span className="font-mono" key={r.id}>{r.sku ?? '—'}</span>,
-            fmt(r.amount),
-          ])}
-          empty="Noch keine Auszahlungen."
-        />
+      {/* Leads */}
+      <Section
+        title="Leads"
+        subtitle="Deine Leads im gewählten Zeitraum"
+        open={openLeads}
+        onToggle={() => setOpenLeads(v => !v)}
+      >
+        <div className="overflow-auto bg-white border rounded">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <Th>Datum</Th>
+                <Th>Offer</Th>
+                <Th>Status</Th>
+                <Th className="text-right">Betrag</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="text-center p-6 text-gray-500">
+                    Keine Leads gefunden.
+                  </td>
+                </tr>
+              )}
+              {leads.map(l => {
+                const date = l.confirmed_at || l.clicked_at
+                const status = l.payout_ready ? 'auszahlbar' : l.confirmed ? 'bestätigt' : 'offen'
+                return (
+                  <tr key={l.id} className="border-t">
+                    <Td>{date ? new Date(date).toLocaleString() : '-'}</Td>
+                    <Td className="font-medium">{l.offer_title || '—'}</Td>
+                    <Td>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          status === 'auszahlbar'
+                            ? 'bg-green-100 text-green-700'
+                            : status === 'bestätigt'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </Td>
+                    <Td className="text-right">{fmtEUR(Number(l.amount || 0))}</Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </Section>
+
+      {/* Auszahlungen */}
+      <Section title="Auszahlungen" subtitle="Historie" open={openPayouts} onToggle={() => setOpenPayouts(v => !v)}>
+        <div className="overflow-auto bg-white border rounded">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <Th>Datum</Th>
+                <Th>Status</Th>
+                <Th>Provider</Th>
+                <Th>SKU</Th>
+                <Th className="text-right">Betrag</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {redemptions.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center p-6 text-gray-500">
+                    Noch keine Auszahlungen.
+                  </td>
+                </tr>
+              )}
+              {redemptions.map(r => (
+                <tr key={r.id} className="border-t">
+                  <Td>{new Date(r.created_at).toLocaleString()}</Td>
+                  <Td>{r.status}</Td>
+                  <Td>{r.provider ?? '-'}</Td>
+                  <Td>{r.sku ?? '-'}</Td>
+                  <Td className="text-right">{fmtEUR(Number(r.amount))}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {loading && <div className="text-sm text-gray-500">Lade Daten…</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
     </div>
   )
 }
 
-/* ===== UI pieces ===== */
-
-function InvoiceForm({ available, vatRate, onCreated }: { available: number; vatRate: number; onCreated: () => void }) {
-  const [amount, setAmount] = useState<string>('')
-  const [mode, setMode] = useState<'gross'|'net'>('gross')
-  const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-
-  const val = Number(amount || 0)
-  const isValid = Number.isFinite(val) && val > 0
-  const eff = calcVat(val, vatRate, mode)
-
-  const submit = async () => {
-    setMsg(null)
-    const pick = amount ? val : available
-    if (!Number.isFinite(pick) || pick <= 0) { setMsg('Ungültiger Betrag.'); return }
-    if (mode === 'gross' && pick > available) { setMsg('Betrag über verfügbarem Guthaben.'); return }
-
-    setLoading(true)
-    try {
-      const res = await fetch('/api/partner-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: pick, mode }),
-      })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j?.error || 'Fehler beim Erstellen der Rechnung')
-      setMsg('Rechnung erstellt.')
-      setAmount('')
-      onCreated()
-    } catch (e: any) {
-      setMsg(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+/* UI-Helpers */
+function Kpi({ title, value }: { title: string; value: number | string }) {
   return (
-    <Card title="Rechnung erstellen">
-      <div className="flex flex-col md:flex-row gap-4 md:items-end">
-        <div className="flex items-center gap-3">
-          <label className="text-sm">Modus</label>
-          <select value={mode} onChange={e => setMode(e.target.value as any)} className="border rounded px-3 py-2">
-            <option value="gross">Brutto</option>
-            <option value="net">Netto</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="number" min={0} step="0.01"
-            value={amount}
-            placeholder={mode === 'gross' ? available.toFixed(2) : 'Netto…'}
-            onChange={(e) => setAmount(e.target.value)}
-            className="border rounded px-3 py-2 w-44"
-          />
-          <button
-            onClick={submit}
-            disabled={loading || (mode==='gross' && available<=0) || (!isValid && !amount)}
-            className="rounded bg-black text-white px-4 py-2 disabled:opacity-50"
-          >
-            {loading ? 'Sende…' : 'Rechnung anlegen'}
-          </button>
-        </div>
-        <div className="text-sm text-gray-500">Verfügbar: {fmt(available)}</div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <MiniStat label="Netto" value={fmt(eff.net)} />
-        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
-        <MiniStat label="Brutto" value={fmt(eff.gross)} />
-        <MiniStat label="Modus" value={mode === 'gross' ? 'Brutto → Netto' : 'Netto → Brutto'} />
-      </div>
-      {msg && <div className="text-sm mt-2">{msg}</div>}
-    </Card>
-  )
-}
-
-function VatBox({ available, vatRate }: { available: number; vatRate: number }) {
-  const eff = calcVat(available, vatRate, 'gross')
-  return (
-    <Card title="MwSt.-Vorschau (auszahlbar)">
-      <div className="grid grid-cols-3 gap-2">
-        <MiniStat label="Netto" value={fmt(eff.net)} />
-        <MiniStat label={`MwSt. (${vatRate} %)`} value={fmt(eff.vat)} />
-        <MiniStat label="Brutto" value={fmt(eff.gross)} />
-      </div>
-      <p className="text-xs text-gray-500 mt-2">
-        Hinweis: Der angewendete Satz kommt aus deinem Profil. Standard ist 19 %.
-      </p>
-    </Card>
-  )
-}
-
-function KPI({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="rounded-2xl border p-4 bg-white shadow-sm">
-      <div className="text-sm text-gray-500">{title}</div>
+    <div className="bg-white border rounded p-4">
+      <div className="text-xs text-gray-500">{title}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
     </div>
   )
 }
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+
+function Section({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  open: boolean
+  onToggle: () => void
+  children: any
+}) {
   return (
-    <section className="rounded-2xl border p-4 bg-white shadow-sm">
-      <div className="text-sm text-gray-500">{title}</div>
-      <div className="mt-2">{children}</div>
-    </section>
-  )
-}
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="text-xl font-semibold mb-2">{title}</h2>
-      {children}
-    </section>
-  )
-}
-function Table({ headers, rows, empty }: { headers: string[]; rows: React.ReactNode[][]; empty: string }) {
-  return (
-    <div className="overflow-x-auto border rounded-2xl bg-white shadow-sm">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            {headers.map(h => <th key={h} className="text-left px-3 py-2 font-medium">{h}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length > 0 ? rows.map((r, idx) => (
-            <tr key={idx} className="border-t">
-              {r.map((c, i) => <td key={i} className={`px-3 py-2 ${i === r.length-1 ? 'text-right' : ''}`}>{c}</td>)}
-            </tr>
-          )) : (
-            <tr><td colSpan={headers.length} className="text-center py-6 text-gray-500">{empty}</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border px-3 py-2">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="font-medium">{value}</div>
-    </div>
-  )
-}
-function Skeleton() {
-  return (
-    <div className="p-6 space-y-6 animate-pulse">
-      <div className="h-6 w-40 bg-gray-200 rounded" />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_,i)=><div key={i} className="h-24 bg-gray-200 rounded-2xl" />)}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[...Array(3)].map((_,i)=><div key={i} className="h-28 bg-gray-200 rounded-2xl" />)}
-      </div>
-      <div className="h-64 bg-gray-200 rounded-2xl" />
+    <div className="bg-[#fafafa] border rounded">
+      <button onClick={onToggle} className="w-full text-left px-4 py-3 flex items-center justify-between">
+        <div>
+          <div className="font-semibold">{title}</div>
+          {subtitle && <div className="text-xs text-gray-500">{subtitle}</div>}
+        </div>
+        <span className="text-xl">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && <div className="p-4">{children}</div>}
     </div>
   )
 }
 
-/* ===== utils ===== */
-
-function fmt(n: number) {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(n || 0)
+function Th({ children, className = '' }: any) {
+  return <th className={`text-left px-3 py-2 font-semibold ${className}`}>{children}</th>
 }
-function dt(s: string) {
-  return new Date(s).toLocaleString()
+function Td({ children, className = '' }: any) {
+  return <td className={`px-3 py-2 ${className}`}>{children}</td>
 }
-function cap(s: string) {
-  return s ? s[0].toUpperCase() + s.slice(1) : s
-}
-function calcVat(input: number, rate: number, mode: 'gross'|'net') {
-  const r = (Number(rate) || 0) / 100
-  if (!Number.isFinite(input) || input <= 0) return { net: 0, vat: 0, gross: 0 }
-  if (mode === 'gross') {
-    const net = round2(input / (1 + r))
-    const vat = round2(input - net)
-    return { net, vat, gross: round2(input) }
-  } else {
-    const vat = round2(input * r)
-    const gross = round2(input + vat)
-    return { net: round2(input), vat, gross }
-  }
-}
-function round2(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100 }

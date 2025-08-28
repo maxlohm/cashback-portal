@@ -12,26 +12,25 @@ export default async function PartnerDashboardPage() {
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
-  const { data: { user }, error: userErr } = await supabase.auth.getUser()
-  if (!user || userErr) redirect('/login?next=/partner-dashboard')
+  // Auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login?next=/partner-dashboard')
 
-  // Server‑Guard auf Rolle bleibt (gut so)
-  const { data: profile, error: profErr } = await supabase
-    .from('profiles')
-    .select('role, soft_deleted_at')
-    .eq('id', user.id)
-    .maybeSingle()
+  // Admin darf immer rein; sonst Rollen-Guard
+  const { data: isAdmin } = await supabase.rpc('is_admin')
+  if (!isAdmin) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, soft_deleted_at')
+      .eq('id', user.id)
+      .maybeSingle()
 
-  if (profErr) {
-    return <div className="p-6 text-red-600">Fehler beim Laden des Profils: {profErr.message}</div>
+    const role = profile?.role ?? ''
+    const allowed = role === 'partner' || role === 'influencer'
+    if (!allowed || profile?.soft_deleted_at) {
+      return <div className="p-6 text-red-600">Kein Zugriff auf das Partner-Dashboard.</div>
+    }
   }
 
-  const role = profile?.role ?? ''
-  const allowed = role === 'partner' || role === 'influencer' || role === 'admin'
-  if (!allowed || profile?.soft_deleted_at) {
-    return <div className="p-6 text-red-600">Kein Zugriff auf das Partner-Dashboard.</div>
-  }
-
-  // ✅ Client erwartet nur noch userId
-  return <PartnerDashboardClient userId={user.id} />
+  return <PartnerDashboardClient />
 }
