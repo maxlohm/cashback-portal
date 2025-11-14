@@ -12,9 +12,11 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="text-lg sm:text-xl font-semibold mt-6">1. Verantwortlicher</h2>
           <p className="text-sm sm:text-base leading-relaxed">
-            TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH<br />
-            Freseniusstraße 5<br />
-            65193 Wiesbaden<br />
+            Bonus-Nest<br />
+            Felix Maximilian Lohmann (Einzelunternehmen)<br />
+            Grindelallee 44<br />
+            20146 Hamburg<br />
+            Deutschland<br />
             E-Mail:{' '}
             <a
               href="mailto:info@bonus-nest.de"
@@ -38,7 +40,7 @@ export default function DatenschutzPage() {
           <h2 className="text-lg sm:text-xl font-semibold mt-6">3. Zweck der Verarbeitung</h2>
           <p className="text-sm sm:text-base leading-relaxed">
             Die Datenverarbeitung erfolgt zum Zweck der Vertragsdurchführung, Prämienabwicklung, Betrugsvermeidung
-            sowie zur Nutzeranalyse (z. B. Newsletterversand, Empfehlungsprogramme).
+            sowie zur Nutzeranalyse (z. B. Newsletterversand, Empfehlungsprogramme).
           </p>
         </section>
 
