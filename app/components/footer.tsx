@@ -25,6 +25,7 @@ export default function Footer() {
   return (
     <footer className="mt-20 bg-[#F1E8CB] text-[#003b5b] border-t border-[#d6c4a1] px-4 sm:px-8 py-10 text-sm">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+        
         <div>
           <h4 className="font-semibold mb-2">Weitere beliebte Deals</h4>
           <ul className="space-y-1">
@@ -45,7 +46,6 @@ export default function Footer() {
                 <li>
                   <Link href="/dashboard" className="hover:underline">Dashboard</Link>
                 </li>
-                
                 <li>
                   <button
                     onClick={handleLogout}
@@ -84,8 +84,13 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
-          <address className="not-italic space-y-1">  
-            <p>Bonus-Nest<br />Khashayar Dehghani</p>
+          <address className="not-italic space-y-1">
+            <p>
+              Bonus-Nest<br />
+              Felix Maximilian Lohmann<br />
+              Grindelallee 44<br />
+              20146 Hamburg
+            </p>
             <a
               href="mailto:info@bonus-nest.de"
               className="hover:underline text-[#0077b6] break-all"

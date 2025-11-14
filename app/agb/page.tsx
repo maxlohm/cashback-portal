@@ -10,87 +10,95 @@ export default function AGBPage() {
         <h1 className="text-2xl sm:text-3xl font-bold text-center sm:text-left">
           Allgemeine Geschäftsbedingungen
         </h1>
-        <p className="text-center sm:text-left text-sm sm:text-base">
-        </p>
 
         <div className="space-y-8 text-sm sm:text-base leading-relaxed">
+
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">1. Allgemeines</h2>
             <p>
-              Diese Nutzungsbedingungen regeln die Nutzung der Plattform <strong>www.bonus-nest.de</strong> (nachfolgend
-              „Plattform“), betrieben von der <strong>TOMORROW.AM Deutsche Beratungs- und Beteiligungs GmbH</strong>,
-              Freseniusstraße 5, 65193 Wiesbaden (nachfolgend „Bonus-Nest“).
+              Diese Nutzungsbedingungen regeln die Nutzung der Plattform <strong>www.bonus-nest.de</strong> 
+              (nachfolgend „Plattform“), betrieben von <strong>Felix Maximilian Lohmann, Grindelallee 44, 20146 Hamburg</strong> 
+              als Einzelunternehmen (nachfolgend „Bonus-Nest“).
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">2. Leistungen</h2>
             <p>
-              Bonus-Nest bietet registrierten Nutzern die Möglichkeit, durch Teilnahme an Partneraktionen Prämienguthaben
-              zu sammeln, das anschließend im internen Prämienbereich gegen Gutscheine (z. B. Amazon, eBay, Aral)
-              eingelöst werden kann.
+              Bonus-Nest bietet registrierten Nutzern die Möglichkeit, durch Teilnahme an Partneraktionen 
+              Prämienguthaben zu sammeln. Das Guthaben kann nach erfolgreicher Bestätigung durch die Anbieter 
+              in Form von Auszahlungen oder Gutscheinen eingelöst werden.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">3. Registrierung und Teilnahme</h2>
             <p>
-              Die Nutzung der Plattform erfordert eine kostenlose Registrierung. Teilnahmeberechtigt sind ausschließlich
-              volljährige Personen mit Wohnsitz in Deutschland. Alle im Registrierungsprozess angegebenen Informationen
-              müssen der Wahrheit entsprechen.
+              Für die Nutzung der Plattform ist eine kostenlose Registrierung erforderlich. Teilnahmeberechtigt 
+              sind ausschließlich volljährige Personen mit Wohnsitz in Deutschland. Alle Angaben im Registrierungsprozess 
+              müssen korrekt und vollständig sein.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">4. Prämien und Auszahlungen</h2>
             <p>
-              Prämiengutschriften erfolgen nach erfolgreicher Validierung durch Partnerprogramme. Eine Auszahlung in
-              Bargeld ist ausgeschlossen. Das Guthaben ist ausschließlich im Prämienbereich der Plattform einlösbar.
+              Prämien werden gutgeschrieben, sobald Partnerprogramme oder Advertiser eine Aktion bestätigt haben. 
+              Bonus-Nest behält sich vor, unbestätigte oder als ungültig markierte Aktionen nicht zu vergüten. 
+              Auszahlungen erfolgen ausschließlich über die angebotenen Auszahlungsmethoden im Nutzerkonto.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">5. Empfehlungs- und Partnerprogramme</h2>
             <p>
-              Bonus-Nest arbeitet mit Kooperationspartnern und Empfehlungsgebern (z. B. Influencer) zusammen, denen
-              individuelle Partnerlinks zur Verfügung gestellt werden. Für jede gültige Registrierung über einen solchen
-              Link kann eine anteilige Vergütung erfolgen.
+              Bonus-Nest arbeitet mit Affiliates, Influencern und Kooperationspartnern zusammen, denen individuelle 
+              Partnerlinks bereitgestellt werden. Vergütungen erfolgen nur bei gültigen und bestätigten Aktionen. 
+              Bonus-Nest behält sich das Recht vor, fehlerhafte oder manipulierte Leads abzulehnen.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">6. Missbrauch und Sperrung</h2>
             <p>
-              Bei Verdacht auf Manipulation, Falschangaben oder anderweitigem Missbrauch behält sich Bonus-Nest das Recht
-              vor, Nutzerkonten vorübergehend zu sperren oder dauerhaft zu löschen – auch ohne vorherige Ankündigung.
+              Bei Verdacht auf Betrug, Mehrfachregistrierungen, Manipulation oder sonstigem Missbrauch kann Bonus-Nest 
+              Konten sperren, Prämien einbehalten oder Nutzer dauerhaft ausschließen – ohne vorherige Ankündigung.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">7. Haftung</h2>
             <p>
-              Bonus-Nest übernimmt keine Haftung für Inhalte, Angebote oder Leistungen von Drittanbietern.
-              Vertragsverhältnisse entstehen ausschließlich zwischen dem Nutzer und dem jeweiligen Drittanbieter.
+              Bonus-Nest übernimmt keine Haftung für Inhalte oder Angebote von Drittanbietern. Leistungs- und 
+              Vertragsverhältnisse entstehen ausschließlich zwischen dem Nutzer und dem jeweiligen Anbieter. 
+              Für technische Ausfälle und Datenverluste wird keine Gewähr übernommen.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">8. Änderungen der Bedingungen</h2>
             <p>
-              Bonus-Nest behält sich das Recht vor, diese AGB jederzeit mit Wirkung für die Zukunft zu ändern. Änderungen
-              werden registrierten Nutzern rechtzeitig in geeigneter Form mitgeteilt.
+              Bonus-Nest kann diese AGB jederzeit mit Wirkung für die Zukunft ändern. Registrierte Nutzer werden 
+              über wesentliche Änderungen informiert. Die fortgesetzte Nutzung der Plattform gilt als Zustimmung 
+              zur aktualisierten Fassung.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg sm:text-xl font-semibold">9. Kontakt</h2>
             <p>
-              Bei Fragen oder Anliegen erreichst du uns unter:{' '}
-              <a href="mailto:info@bonus-nest.de" className="text-blue-600 underline break-all">
+              Bei Fragen erreichst du uns unter:{' '}
+              <a
+                href="mailto:info@bonus-nest.de"
+                className="text-blue-600 underline break-all"
+              >
                 info@bonus-nest.de
-              </a><br />
+              </a>
+              <br />
+              Felix Maximilian Lohmann, Grindelallee 44, 20146 Hamburg
             </p>
           </section>
+
         </div>
       </main>
     </>
