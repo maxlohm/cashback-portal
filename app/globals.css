@@ -41,6 +41,39 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
+@layer components {
+  .cookie-banner {
+    @apply fixed inset-x-0 bottom-0 z-[9999]
+      flex items-center justify-between gap-4
+      px-4 py-3 text-sm
+      bg-card text-foreground border-t border-border
+      shadow-lg;
+  }
+
+  .cookie-banner p {
+    @apply m-0;
+  }
+
+  .cookie-banner a {
+    @apply text-primary underline;
+  }
+
+  .cookie-banner button,
+  .cookie-btn {
+    @apply inline-flex items-center justify-center
+      rounded-md px-4 py-2 text-sm font-medium
+      bg-primary text-primary-foreground
+      shadow-sm
+      hover:bg-primary/90
+      focus-visible:outline-none
+      focus-visible:ring-2
+      focus-visible:ring-ring
+      focus-visible:ring-offset-2
+      focus-visible:ring-offset-background
+      cursor-pointer;
+  }
+}
+
 
 /* Entferne den Dark Mode */
 body {

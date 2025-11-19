@@ -25,12 +25,21 @@ type RedemptionRow = {
   amount: number;
   status: 'pending' | 'approved' | 'processing' | 'paid' | 'rejected';
   created_at: string;
+  payout_method: 'voucher' | 'bank_transfer' | null;
+  voucher_type: string | null;
+  voucher_code: string | null;
 };
 
-const fmtMoney = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+const fmtMoney = new Intl.NumberFormat('de-DE', {
+  style: 'currency',
+  currency: 'EUR',
+});
+
+const MIN_PAYOUT = 5;
 
 export default function UserDashboardClient() {
   const supabase = useMemo(() => createClientComponentClient(), []);
+
   const [balance, setBalance] = useState<Balance | null>(null);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([]);
@@ -38,192 +47,521 @@ export default function UserDashboardClient() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const MIN_PAYOUT = 5;
+  const [voucherType, setVoucherType] = useState<string>('Amazon');
 
   const load = async () => {
     setLoading(true);
     setError(null);
 
-    // Balance
-    const { data: bal, error: balErr } = await supabase.rpc('get_user_balance');
-    if (balErr) setError(balErr.message);
-    setBalance(bal as Balance);
+    try {
+      // Balance
+      const { data: bal, error: balErr } = await supabase.rpc('get_user_balance');
+      if (balErr) throw balErr;
+      setBalance(bal as Balance);
 
-    // Leads (mit Offer)
-    const { data: leadRows } = await supabase
-      .from('leads')
-      .select('id, amount, confirmed, payout_ready, confirmed_at, created_at, clicks(offers(title,image_url))')
-      .order('created_at', { ascending: false })
-      .limit(20);
+      // Leads (mit Offer)
+      const { data: leadRows } = await supabase
+        .from('leads')
+        .select(
+          'id, amount, confirmed, payout_ready, confirmed_at, created_at, clicks(offers(title,image_url))',
+        )
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-    const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => ({
-      id: row.id,
-      offer_title: row.clicks?.offers?.title ?? 'Deal',
-      offer_image: row.clicks?.offers?.image_url ?? undefined,
-      amount: row.amount,
-      confirmed: row.confirmed,
-      payout_ready: row.payout_ready,
-      confirmed_at: row.confirmed_at,
-      created_at: row.created_at,
-    }));
-    setLeads(leadsMapped);
+      const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => ({
+        id: row.id,
+        offer_title: row.clicks?.offers?.title ?? 'Deal',
+        offer_image: row.clicks?.offers?.image_url ?? undefined,
+        amount: row.amount,
+        confirmed: row.confirmed,
+        payout_ready: row.payout_ready,
+        confirmed_at: row.confirmed_at,
+        created_at: row.created_at,
+      }));
+      setLeads(leadsMapped);
 
-    // Redemptions (eigene)
-    const { data: redRows } = await supabase
-      .from('redemptions')
-      .select('id, amount, status, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
-    setRedemptions((redRows || []) as RedemptionRow[]);
+      // Redemptions (eigene) über RPC
+      const { data: redRows, error: redErr } = await supabase.rpc(
+        'get_user_redemptions',
+      );
+      if (redErr) throw redErr;
 
-    setLoading(false);
+      const mapped: RedemptionRow[] = (redRows || []).map((r: any) => ({
+        id: r.redemption_id,
+        amount: Number(r.amount),
+        status: r.status,
+        created_at: r.created_at,
+        payout_method: r.payout_method,
+        voucher_type: r.voucher_type,
+        voucher_code: r.voucher_code,
+      }));
+      setRedemptions(mapped);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? 'Fehler beim Laden der Daten.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const hasOpenRequest = redemptions.some(r => ['pending','approved','processing'].includes(r.status));
-  const canRequest = (balance?.available_balance ?? 0) >= MIN_PAYOUT && !hasOpenRequest;
+  const hasOpenRequest = redemptions.some((r) =>
+    ['pending', 'approved', 'processing'].includes(r.status),
+  );
+  const canRequest =
+    (balance?.available_balance ?? 0) >= MIN_PAYOUT && !hasOpenRequest;
 
   const requestPayout = async () => {
     if (!canRequest) return;
-    setBusy(true); setError(null); setNotice(null);
-    const { data, error } = await supabase.rpc('create_redemption_request', { min_amount: MIN_PAYOUT });
-    setBusy(false);
-    if (error) { setError(humanizeError(error.message)); return; }
-    setNotice('Auszahlungsanfrage erstellt. Wir prüfen diese zeitnah.');
-    await load();
-    setTimeout(() => setNotice(null), 3000);
+
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        'create_redemption_request',
+        {
+          p_amount: MIN_PAYOUT,
+          p_voucher_type: voucherType,
+        },
+      );
+
+      if (rpcError) {
+        setError(humanizeError(rpcError.message));
+        return;
+      }
+
+      setNotice('Auszahlungsanfrage erstellt. Wir prüfen diese zeitnah.');
+      await load();
+      setTimeout(() => setNotice(null), 3000);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (loading) return <div className="p-4">Lade Daten…</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+          Lade Daten …
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      {/* Karten */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BalanceCard label="Vorgemerkt" value={balance?.pending_balance ?? 0} color="orange" />
-        <BalanceCard label="Bisher ausgezahlt" value={balance?.total_paid ?? 0} color="green" />
-        <BalanceCard label="Auszahlbar" value={balance?.available_balance ?? 0} color="blue" />
-      </div>
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Dein Bonus-Nest Dashboard
+        </h1>
+        <p className="text-sm text-slate-600">
+          Behalte dein Guthaben, deine bestätigten Abschlüsse und deine Auszahlungen im Blick.
+        </p>
+      </header>
 
-      {/* Aktionen */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={requestPayout}
-          disabled={!canRequest || busy}
-          className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-        >
-          {busy ? 'Sende…' : `Auszahlung anfordern (ab ${fmtMoney.format(MIN_PAYOUT)})`}
-        </button>
-        {!canRequest && (
-          <div className="text-sm text-gray-500">
-            {hasOpenRequest
-              ? 'Es gibt bereits eine offene Auszahlungsanfrage.'
-              : `Mindestsumme ${fmtMoney.format(MIN_PAYOUT)} nicht erreicht.`}
+      {/* Top-Karten */}
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <BalanceCard
+          label="Vorgemerkt"
+          hint="Bestätigte Abschlüsse, noch nicht auszahlbar"
+          value={balance?.pending_balance ?? 0}
+          color="amber"
+        />
+        <BalanceCard
+          label="Auszahlbar"
+          hint="Guthaben, das du aktuell anfordern kannst"
+          value={balance?.available_balance ?? 0}
+          color="emerald"
+          emphasize
+        />
+        <BalanceCard
+          label="Bereits ausgezahlt"
+          hint="Summe aller freigegebenen Auszahlungen"
+          value={balance?.total_paid ?? 0}
+          color="sky"
+        />
+      </section>
+
+      {/* Auszahlungskarte */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Auszahlung anfordern
+            </h2>
+            <p className="text-sm text-slate-600">
+              Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und senden dir den Code,
+              sobald die Auszahlung freigegeben wurde.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-slate-600">Gutschein</label>
+              <select
+                value={voucherType}
+                onChange={(e) => setVoucherType(e.target.value)}
+                className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              >
+                <option value="Amazon">Amazon</option>
+                <option value="Zalando">Zalando</option>
+                <option value="Rossmann">Rossmann</option>
+                <option value="Rewe">Rewe</option>
+                <option value="Aral">Aral</option>
+                <option value="toom">toom Baumarkt</option>
+                <option value="IKEA">IKEA</option>
+                <option value="DM">dm Drogerie</option>
+              </select>
+            </div>
+
+            <button
+              onClick={requestPayout}
+              disabled={!canRequest || busy}
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {busy
+                ? 'Sende …'
+                : `Auszahlung anfordern (ab ${fmtMoney.format(MIN_PAYOUT)})`}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span>Mindestbetrag: {fmtMoney.format(MIN_PAYOUT)}</span>
+          {hasOpenRequest && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+              Es gibt bereits eine offene Auszahlungsanfrage.
+            </span>
+          )}
+          {!hasOpenRequest &&
+            (balance?.available_balance ?? 0) < MIN_PAYOUT && (
+              <span className="rounded-full bg-slate-50 px-2 py-0.5">
+                Noch nicht genug auszahlbares Guthaben für eine Auszahlung.
+              </span>
+            )}
+        </div>
+
+        {notice && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            {notice}
           </div>
         )}
-      </div>
-
-      {notice && <div className="text-green-600 text-sm">{notice}</div>}
-      {error && <div className="text-red-600 text-sm">Fehler: {error}</div>}
-
-      {/* Leads */}
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Abschlussverlauf</h2>
-        {leads.length === 0 ? (
-          <Empty label="Noch keine Abschlüsse" />
-        ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-2">Datum</th>
-                <th className="p-2">Deal</th>
-                <th className="p-2">Betrag</th>
-                <th className="p-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((l) => (
-                <tr key={l.id} className="border-b">
-                  <td className="p-2">{new Date(l.created_at).toLocaleDateString('de-DE')}</td>
-                  <td className="p-2 flex items-center gap-2">
-                    {l.offer_image && <img src={l.offer_image} alt="" className="w-8 h-8 object-contain" />}
-                    {l.offer_title}
-                  </td>
-                  <td className="p-2">{l.amount ? fmtMoney.format(l.amount) : '-'}</td>
-                  <td className="p-2"><LeadStatusBadge confirmed={l.confirmed} payoutReady={l.payout_ready} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {error && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            Fehler: {error}
+          </div>
         )}
       </section>
 
-      {/* Redemptions */}
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Auszahlungen</h2>
-        {redemptions.length === 0 ? (
-          <Empty label="Noch keine Auszahlungen" />
-        ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-2">Datum</th>
-                <th className="p-2">Betrag</th>
-                <th className="p-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {redemptions.map((r) => (
-                <tr key={r.id} className="border-b">
-                  <td className="p-2">{new Date(r.created_at).toLocaleString('de-DE')}</td>
-                  <td className="p-2">{fmtMoney.format(r.amount)}</td>
-                  <td className="p-2"><RedemptionBadge status={r.status} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      {/* Zwei Spalten: Abschlüsse & Auszahlungen */}
+      <section className="grid gap-6 md:grid-cols-2">
+        {/* Leads */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Abschlussverlauf
+            </h2>
+            <span className="text-xs text-slate-500">
+              Letzte {leads.length} Abschlüsse
+            </span>
+          </div>
+          {leads.length === 0 ? (
+            <Empty label="Noch keine Abschlüsse." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Datum
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Deal
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Betrag
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leads.map((l) => (
+                    <tr
+                      key={l.id}
+                      className="border-b border-slate-100 last:border-0"
+                    >
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {new Date(l.created_at).toLocaleDateString('de-DE')}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex items-center gap-2">
+                          {l.offer_image && (
+                            <img
+                              src={l.offer_image}
+                              alt=""
+                              className="h-7 w-7 rounded border border-slate-200 bg-white object-contain"
+                            />
+                          )}
+                          <span className="truncate text-slate-800">
+                            {l.offer_title}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {l.amount ? fmtMoney.format(l.amount) : '–'}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <LeadStatusBadge
+                          confirmed={l.confirmed}
+                          payoutReady={l.payout_ready}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Redemptions */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Auszahlungen & Gutscheine
+            </h2>
+            <span className="text-xs text-slate-500">
+              Letzte {redemptions.length} Auszahlungen
+            </span>
+          </div>
+          {redemptions.length === 0 ? (
+            <Empty label="Noch keine Auszahlungen." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left">
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Datum
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Betrag
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Status
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Art
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Gutschein
+                    </th>
+                    <th className="px-2 py-1.5 font-medium text-slate-600">
+                      Code
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {redemptions.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-b border-slate-100 last:border-0"
+                    >
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {new Date(r.created_at).toLocaleString('de-DE')}
+                      </td>
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {fmtMoney.format(r.amount)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <RedemptionBadge status={r.status} />
+                      </td>
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {r.payout_method === 'voucher'
+                          ? 'Gutschein'
+                          : r.payout_method === 'bank_transfer'
+                          ? 'Überweisung'
+                          : '–'}
+                      </td>
+                      <td className="px-2 py-1.5 text-slate-700">
+                        {r.voucher_type ?? '–'}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {r.payout_method === 'voucher' &&
+                        r.status === 'paid' &&
+                        r.voucher_code ? (
+                          <CopyableCode code={r.voucher_code} />
+                        ) : (
+                          <span className="text-[11px] text-slate-400">
+                            Noch nicht verfügbar
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
 }
 
-function BalanceCard({ label, value, color }: { label: string; value: number; color: 'orange'|'green'|'blue' }) {
-  const colors = { orange: 'text-orange-600', green: 'text-green-600', blue: 'text-blue-600' };
+/* =================== Hilfs-Components =================== */
+
+function BalanceCard({
+  label,
+  hint,
+  value,
+  color,
+  emphasize,
+}: {
+  label: string;
+  hint?: string;
+  value: number;
+  color: 'amber' | 'emerald' | 'sky';
+  emphasize?: boolean;
+}) {
+  const colorMap: Record<string, string> = {
+    amber: 'text-amber-600',
+    emerald: 'text-emerald-600',
+    sky: 'text-sky-600',
+  };
+  const borderMap: Record<string, string> = {
+    amber: 'border-amber-100',
+    emerald: 'border-emerald-100',
+    sky: 'border-sky-100',
+  };
   const safe = Number.isFinite(value) ? value : 0;
+
   return (
-    <div className="p-4 rounded-xl border bg-white shadow">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className={`text-2xl font-bold ${colors[color]}`}>{safe.toFixed(2)} €</div>
+    <div
+      className={`flex flex-col justify-between rounded-2xl border bg-white p-4 shadow-sm ${
+        borderMap[color]
+      } ${emphasize ? 'ring-1 ring-slate-900/5' : ''}`}
+    >
+      <div>
+        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        {hint && (
+          <div className="mt-1 text-[11px] text-slate-500">{hint}</div>
+        )}
+      </div>
+      <div className={`mt-3 text-2xl font-semibold ${colorMap[color]}`}>
+        {safe.toFixed(2)} €
+      </div>
     </div>
   );
 }
 
 function Empty({ label }: { label: string }) {
-  return <div className="p-4 text-sm text-gray-500 border rounded bg-white">{label}</div>;
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+      {label}
+    </div>
+  );
 }
 
-function LeadStatusBadge({ confirmed, payoutReady }: { confirmed: boolean; payoutReady: boolean }) {
-  if (!confirmed) return <span className="px-2 py-1 text-xs rounded bg-gray-200">Offen</span>;
-  if (payoutReady) return <span className="px-2 py-1 text-xs rounded bg-blue-200">Auszahlbar</span>;
-  return <span className="px-2 py-1 text-xs rounded bg-green-200">Bestätigt</span>;
+function LeadStatusBadge({
+  confirmed,
+  payoutReady,
+}: {
+  confirmed: boolean;
+  payoutReady: boolean;
+}) {
+  if (!confirmed)
+    return (
+      <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+        Offen
+      </span>
+    );
+  if (payoutReady)
+    return (
+      <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+        Auszahlbar
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+      Bestätigt
+    </span>
+  );
 }
 
-function RedemptionBadge({ status }: { status: 'pending'|'approved'|'processing'|'paid'|'rejected' }) {
-  const map: Record<string,string> = {
-    pending:'bg-gray-200 text-gray-800',
-    approved:'bg-blue-200 text-blue-900',
-    processing:'bg-yellow-200 text-yellow-900',
-    paid:'bg-green-200 text-green-900',
-    rejected:'bg-red-200 text-red-900',
+function RedemptionBadge({
+  status,
+}: {
+  status: 'pending' | 'approved' | 'processing' | 'paid' | 'rejected';
+}) {
+  const map: Record<string, string> = {
+    pending: 'bg-slate-100 text-slate-800',
+    approved: 'bg-sky-100 text-sky-800',
+    processing: 'bg-amber-100 text-amber-800',
+    paid: 'bg-emerald-100 text-emerald-800',
+    rejected: 'bg-rose-100 text-rose-800',
   };
-  return <span className={`px-2 py-1 text-xs rounded ${map[status] || 'bg-gray-200'}`}>{status}</span>;
+  const labelMap: Record<string, string> = {
+    pending: 'Offen',
+    approved: 'Freigegeben',
+    processing: 'In Bearbeitung',
+    paid: 'Ausgezahlt',
+    rejected: 'Abgelehnt',
+  };
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+        map[status] || 'bg-slate-100 text-slate-800'
+      }`}
+    >
+      {labelMap[status] ?? status}
+    </span>
+  );
+}
+
+function CopyableCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-mono text-slate-800 hover:bg-slate-100"
+    >
+      <span className="truncate max-w-[120px]">{code}</span>
+      <span className="text-[10px] text-slate-500">
+        {copied ? 'Kopiert' : 'Kopieren'}
+      </span>
+    </button>
+  );
 }
 
 function humanizeError(msg: string) {
-  if (msg.includes('request_exists')) return 'Es gibt bereits eine offene Auszahlungsanfrage.';
-  if (msg.includes('insufficient_balance')) return 'Nicht genügend auszahlbares Guthaben.';
+  if (msg.includes('request_exists'))
+    return 'Es gibt bereits eine offene Auszahlungsanfrage.';
+  if (msg.includes('insufficient') || msg.includes('balance'))
+    return 'Nicht genügend auszahlbares Guthaben.';
+  if (msg.includes('minimum payout'))
+    return 'Mindestbetrag für Auszahlungen ist 5 €.';
   return msg;
 }

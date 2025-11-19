@@ -13,12 +13,21 @@ type Row = {
   status: Status;
   created_at: string;
   total_count: number; // kommt aus admin_list_redemptions (count(*) over ())
+  payout_method: 'voucher' | 'bank_transfer' | null;
+  voucher_type: string | null;
+  voucher_code: string | null;
 };
 
 type KPI = { totalPaid: number; totalPending: number; totalProcessing: number };
 
-const fmtMoney = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
-const fmtDate = new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+const fmtMoney = new Intl.NumberFormat('de-DE', {
+  style: 'currency',
+  currency: 'EUR',
+});
+const fmtDate = new Intl.DateTimeFormat('de-DE', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
 
 export default function AdminRedemptionsClient() {
   const supabase = useMemo(() => createClientComponentClient(), []);
@@ -34,13 +43,26 @@ export default function AdminRedemptionsClient() {
   const [status, setStatus] = useState<'all' | Status>('all');
   const [month, setMonth] = useState<string>('all'); // YYYY-MM
   const [search, setSearch] = useState<string>(''); // email contains
-  const [sortKey, setSortKey] = useState<'created_at' | 'user_email' | 'amount' | 'status'>('created_at');
+  const [sortKey, setSortKey] = useState<
+    'created_at' | 'user_email' | 'amount' | 'status'
+  >('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
 
+  // NEU: Filter nach Auszahlungsart
+  const [payoutFilter, setPayoutFilter] = useState<'all' | 'voucher' | 'bank_transfer'>('voucher');
+
   // KPIs (aus DB)
-  const [kpi, setKpi] = useState<KPI>({ totalPaid: 0, totalPending: 0, totalProcessing: 0 });
+  const [kpi, setKpi] = useState<KPI>({
+    totalPaid: 0,
+    totalPending: 0,
+    totalProcessing: 0,
+  });
+
+  // Lokale Codes pro Redemption (für Gutscheineingabe)
+  const [voucherCodes, setVoucherCodes] = useState<Record<string, string>>({});
+  const [savingVoucherId, setSavingVoucherId] = useState<string | null>(null);
 
   // Daten laden
   const load = async () => {
@@ -60,7 +82,10 @@ export default function AdminRedemptionsClient() {
         p_limit: PAGE_SIZE,
         p_offset: offset,
       }),
-      supabase.rpc('admin_redemptions_kpis', { p_month, p_search: search || null }),
+      supabase.rpc('admin_redemptions_kpis', {
+        p_month,
+        p_search: search || null,
+      }),
     ]);
 
     if (error) {
@@ -68,7 +93,19 @@ export default function AdminRedemptionsClient() {
       setRows([]);
       setTotal(0);
     } else {
-      const list = (data || []) as Row[];
+      const rawList = (data || []) as any[];
+      const list: Row[] = rawList.map((r) => ({
+        redemption_id: r.redemption_id,
+        user_id: r.user_id,
+        user_email: r.user_email ?? null,
+        amount: Number(r.amount),
+        status: r.status as Status,
+        created_at: r.created_at,
+        total_count: Number(r.total_count ?? rawList.length),
+        payout_method: (r.payout_method ?? null) as any,
+        voucher_type: r.voucher_type ?? null,
+        voucher_code: r.voucher_code ?? null,
+      }));
       setRows(list);
       setTotal(list.length ? Number(list[0].total_count) : 0);
     }
@@ -109,11 +146,13 @@ export default function AdminRedemptionsClient() {
     }
   };
 
-  // Optimistisches Status-Update
+  // Optimistisches Status-Update (für Nicht-Gutschein-Fälle)
   const updateStatus = async (id: string, newStatus: Status) => {
     setBusyId(id);
     const prev = rows;
-    const next = rows.map((r) => (r.redemption_id === id ? { ...r, status: newStatus } : r));
+    const next = rows.map((r) =>
+      r.redemption_id === id ? { ...r, status: newStatus } : r,
+    );
     setRows(next);
 
     const { error } = await supabase.rpc('admin_update_redemption_status', {
@@ -136,15 +175,36 @@ export default function AdminRedemptionsClient() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // NEU: clientseitiger Filter nach payout_method
+  const visibleRows = rows.filter((r) =>
+    payoutFilter === 'all' ? true : r.payout_method === payoutFilter,
+  );
+
   const exportCsv = () => {
-    const header = ['created_at', 'user_email', 'user_id', 'amount', 'status'];
+    const header = [
+      'created_at',
+      'user_email',
+      'user_id',
+      'amount',
+      'status',
+      'payout_method',
+      'voucher_type',
+    ];
     const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
     const lines = [header.join(',')];
-    rows.forEach((r) => {
+    visibleRows.forEach((r) => {
       lines.push(
-        [r.created_at, r.user_email || '', r.user_id, r.amount.toFixed(2), r.status]
+        [
+          r.created_at,
+          r.user_email || '',
+          r.user_id,
+          r.amount.toFixed(2),
+          r.status,
+          r.payout_method ?? '',
+          r.voucher_type ?? '',
+        ]
           .map((v) => escape(String(v)))
-          .join(',')
+          .join(','),
       );
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -154,6 +214,50 @@ export default function AdminRedemptionsClient() {
     a.download = `redemptions-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // NEU: Gutschein abschließen → API /admin/voucher-complete
+  const completeVoucher = async (row: Row) => {
+    const code =
+      (voucherCodes[row.redemption_id] ?? '').trim() ||
+      (row.voucher_code ?? '').trim();
+
+    if (!code) {
+      alert('Gutscheincode darf nicht leer sein.');
+      return;
+    }
+    setSavingVoucherId(row.redemption_id);
+    setNotice(null);
+
+    try {
+      const res = await fetch('/api/admin/voucher-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          redemptionId: row.redemption_id,
+          voucherCode: code,
+          voucherType: row.voucher_type,
+          voucherNotes: null,
+          userEmail: row.user_email ?? '',
+          amount: row.amount,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Fehler beim Abschließen');
+      }
+
+      // optional: Response auswerten, aber reload reicht
+      await load();
+      setNotice('Gutschein gespeichert und E-Mail angestoßen.');
+      setTimeout(() => setNotice(null), 2500);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message ?? 'Fehler beim Abschließen');
+    } finally {
+      setSavingVoucherId(null);
+    }
   };
 
   return (
@@ -187,6 +291,21 @@ export default function AdminRedemptionsClient() {
             <option value="rejected">Rejected</option>
           </select>
         </div>
+
+        {/* NEU: Auszahlungsart */}
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500">Auszahlungsart</label>
+          <select
+            value={payoutFilter}
+            onChange={(e) => setPayoutFilter(e.target.value as any)}
+            className="border p-2 rounded min-w-[160px]"
+          >
+            <option value="all">Alle</option>
+            <option value="voucher">Gutschein</option>
+            <option value="bank_transfer">Banküberweisung</option>
+          </select>
+        </div>
+
         <div className="flex flex-col">
           <label className="text-xs text-gray-500">Monat</label>
           <input
@@ -208,7 +327,11 @@ export default function AdminRedemptionsClient() {
             className="border p-2 rounded w-full"
           />
         </div>
-        <button onClick={exportCsv} className="px-3 py-2 border rounded bg-white hover:shadow" disabled={loading}>
+        <button
+          onClick={exportCsv}
+          className="px-3 py-2 border rounded bg-white hover:shadow"
+          disabled={loading}
+        >
           CSV exportieren
         </button>
       </div>
@@ -220,16 +343,34 @@ export default function AdminRedemptionsClient() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 text-left">
-              <Th onClick={() => toggleSort('created_at')} active={sortKey === 'created_at'} dir={sortDir}>
+              <Th
+                onClick={() => toggleSort('created_at')}
+                active={sortKey === 'created_at'}
+                dir={sortDir}
+              >
                 Datum
               </Th>
-              <Th onClick={() => toggleSort('user_email')} active={sortKey === 'user_email'} dir={sortDir}>
+              <Th
+                onClick={() => toggleSort('user_email')}
+                active={sortKey === 'user_email'}
+                dir={sortDir}
+              >
                 User
               </Th>
-              <Th onClick={() => toggleSort('amount')} active={sortKey === 'amount'} dir={sortDir}>
+              <Th
+                onClick={() => toggleSort('amount')}
+                active={sortKey === 'amount'}
+                dir={sortDir}
+              >
                 Betrag
               </Th>
-              <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir}>
+              <th className="p-2">Methode</th>
+              <th className="p-2">Gutschein-Typ</th>
+              <Th
+                onClick={() => toggleSort('status')}
+                active={sortKey === 'status'}
+                dir={sortDir}
+              >
                 Status
               </Th>
               <th className="p-2">Aktionen</th>
@@ -238,41 +379,113 @@ export default function AdminRedemptionsClient() {
           <tbody>
             {loading ? (
               <tr>
-                <td className="p-4" colSpan={5}>
+                <td className="p-4" colSpan={7}>
                   Lade…
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : visibleRows.length === 0 ? (
               <tr>
-                <td className="p-4" colSpan={5}>
+                <td className="p-4" colSpan={7}>
                   Keine Daten
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
-                <tr key={r.redemption_id} className="border-b">
-                  <td className="p-2">{fmtDate.format(new Date(r.created_at))}</td>
-                  <td className="p-2">{r.user_email || r.user_id}</td>
-                  <td className="p-2">{fmtMoney.format(r.amount)}</td>
-                  <td className="p-2">
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="p-2 flex flex-wrap gap-2">
-                    {r.status === 'pending' && (
-                      <>
-                        <Btn disabled={busyId === r.redemption_id} onClick={() => updateStatus(r.redemption_id, 'approved')} label="Approve" kind="green" />
-                        <Btn disabled={busyId === r.redemption_id} onClick={() => updateStatus(r.redemption_id, 'rejected')} label="Reject" kind="red" />
-                      </>
-                    )}
-                    {r.status === 'approved' && (
-                      <Btn disabled={busyId === r.redemption_id} onClick={() => updateStatus(r.redemption_id, 'processing')} label="Processing" kind="blue" />
-                    )}
-                    {r.status === 'processing' && (
-                      <Btn disabled={busyId === r.redemption_id} onClick={() => updateStatus(r.redemption_id, 'paid')} label="Mark Paid" kind="dark" />
-                    )}
-                  </td>
-                </tr>
-              ))
+              visibleRows.map((r) => {
+                const codeValue =
+                  voucherCodes[r.redemption_id] ??
+                  r.voucher_code ??
+                  '';
+
+                const isVoucher = r.payout_method === 'voucher';
+
+                return (
+                  <tr key={r.redemption_id} className="border-b">
+                    <td className="p-2">
+                      {fmtDate.format(new Date(r.created_at))}
+                    </td>
+                    <td className="p-2">{r.user_email || r.user_id}</td>
+                    <td className="p-2">{fmtMoney.format(r.amount)}</td>
+                    <td className="p-2">
+                      {r.payout_method ?? '-'}
+                    </td>
+                    <td className="p-2">{r.voucher_type ?? '-'}</td>
+                    <td className="p-2">
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td className="p-2">
+                      {isVoucher ? (
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <input
+                            type="text"
+                            value={codeValue}
+                            onChange={(e) =>
+                              setVoucherCodes((prev) => ({
+                                ...prev,
+                                [r.redemption_id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Gutscheincode"
+                            className="border p-1 rounded text-xs w-40"
+                          />
+                          <Btn
+                            disabled={savingVoucherId === r.redemption_id}
+                            onClick={() => completeVoucher(r)}
+                            label={
+                              savingVoucherId === r.redemption_id
+                                ? 'Speichere…'
+                                : 'Gutschein erledigt'
+                            }
+                            kind="dark"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {r.status === 'pending' && (
+                            <>
+                              <Btn
+                                disabled={busyId === r.redemption_id}
+                                onClick={() =>
+                                  updateStatus(r.redemption_id, 'approved')
+                                }
+                                label="Approve"
+                                kind="green"
+                              />
+                              <Btn
+                                disabled={busyId === r.redemption_id}
+                                onClick={() =>
+                                  updateStatus(r.redemption_id, 'rejected')
+                                }
+                                label="Reject"
+                                kind="red"
+                              />
+                            </>
+                          )}
+                          {r.status === 'approved' && (
+                            <Btn
+                              disabled={busyId === r.redemption_id}
+                              onClick={() =>
+                                updateStatus(r.redemption_id, 'processing')
+                              }
+                              label="Processing"
+                              kind="blue"
+                            />
+                          )}
+                          {r.status === 'processing' && (
+                            <Btn
+                              disabled={busyId === r.redemption_id}
+                              onClick={() =>
+                                updateStatus(r.redemption_id, 'paid')
+                              }
+                              label="Mark Paid"
+                              kind="dark"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -281,10 +494,15 @@ export default function AdminRedemptionsClient() {
       {/* Pagination */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm text-gray-500">
-          {total} Einträge • Seite {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+          {visibleRows.length} Einträge (gesamt {total}) • Seite {page} /{' '}
+          {Math.max(1, Math.ceil(total / PAGE_SIZE))}
         </div>
         <div className="flex gap-2">
-          <button className="px-2 py-1 border rounded" disabled={page <= 1 || loading} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <button
+            className="px-2 py-1 border rounded"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             Zurück
           </button>
           <button
@@ -314,7 +532,12 @@ function Th({
   dir: 'asc' | 'desc';
 }) {
   return (
-    <th className={`p-2 cursor-pointer select-none ${active ? 'underline' : ''}`} onClick={onClick}>
+    <th
+      className={`p-2 cursor-pointer select-none ${
+        active ? 'underline' : ''
+      }`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-1">
         <span>{children}</span>
         {active && <span>{dir === 'asc' ? '▲' : '▼'}</span>}
@@ -323,10 +546,31 @@ function Th({
   );
 }
 
-function Btn({ onClick, label, kind, disabled }: { onClick: () => void; label: string; kind: 'green' | 'red' | 'blue' | 'dark'; disabled?: boolean }) {
-  const map: Record<string, string> = { green: 'bg-green-500', red: 'bg-red-500', blue: 'bg-blue-500', dark: 'bg-gray-800' };
+function Btn({
+  onClick,
+  label,
+  kind,
+  disabled,
+}: {
+  onClick: () => void;
+  label: string;
+  kind: 'green' | 'red' | 'blue' | 'dark';
+  disabled?: boolean;
+}) {
+  const map: Record<string, string> = {
+    green: 'bg-green-500',
+    red: 'bg-red-500',
+    blue: 'bg-blue-500',
+    dark: 'bg-gray-800',
+  };
   return (
-    <button disabled={disabled} onClick={onClick} className={`px-2 py-1 text-white rounded ${map[kind]} hover:opacity-90 disabled:opacity-50`}>
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={`px-2 py-1 text-white rounded ${
+        map[kind]
+      } hover:opacity-90 disabled:opacity-50`}
+    >
       {label}
     </button>
   );
@@ -340,7 +584,11 @@ function StatusBadge({ status }: { status: Status }) {
     paid: 'bg-green-200 text-green-900',
     rejected: 'bg-red-200 text-red-900',
   };
-  return <span className={`px-2 py-1 text-xs rounded ${map[status] || 'bg-gray-200'}`}>{status}</span>;
+  return (
+    <span className={`px-2 py-1 text-xs rounded ${map[status] || 'bg-gray-200'}`}>
+      {status}
+    </span>
+  );
 }
 
 function KpiCard({ label, value }: { label: string; value: number }) {
