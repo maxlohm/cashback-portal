@@ -30,12 +30,45 @@ type RedemptionRow = {
   voucher_code: string | null;
 };
 
+type VoucherOption = {
+  id: string;
+  label: string;
+  minAmount: number;
+};
+
+const VOUCHERS: VoucherOption[] = [
+  { id: 'Amazon', label: 'Amazon', minAmount: 1 },
+  { id: 'Zalando', label: 'Zalando', minAmount: 5 },
+  { id: 'Otto', label: 'Otto', minAmount: 5 },
+  { id: 'toom', label: 'toom Baumarkt', minAmount: 5 },
+  { id: 'IKEA', label: 'IKEA', minAmount: 5 },
+  { id: 'MediaMarkt', label: 'MediaMarkt', minAmount: 5 },
+  { id: 'Aral', label: 'Aral Gutschein', minAmount: 10 },
+  { id: 'Rossmann', label: 'Rossmann', minAmount: 5 },
+  { id: 'H&M', label: 'H&M', minAmount: 5 },
+  { id: 'Kaufland', label: 'Kaufland', minAmount: 5 },
+  { id: 'quirion', label: 'quirion', minAmount: 15 },
+  { id: 'Rewe', label: 'Rewe', minAmount: 5 },
+  { id: 'airbnb', label: 'airbnb', minAmount: 50 },
+  { id: 'drive&ride', label: 'drive&ride', minAmount: 10 },
+
+  // zusätzliche Gutscheine
+  { id: 'Apple', label: 'Apple', minAmount: 5 },
+  { id: 'GooglePlay', label: 'Google Play Gift Card', minAmount: 5 },
+  { id: 'Netflix', label: 'Netflix', minAmount: 5 },
+  { id: 'Spotify', label: 'Spotify', minAmount: 5 },
+  { id: 'Steam', label: 'Steam', minAmount: 5 },
+  { id: 'Lidl', label: 'Lidl', minAmount: 5 },
+  { id: 'eBay', label: 'eBay', minAmount: 5 },
+];
+
 const fmtMoney = new Intl.NumberFormat('de-DE', {
   style: 'currency',
   currency: 'EUR',
 });
 
-const MIN_PAYOUT = 5;
+// globales Minimum – sollte zum Backend-Check in create_redemption_request passen
+const MIN_PAYOUT = 1;
 
 export default function UserDashboardClient() {
   const supabase = useMemo(() => createClientComponentClient(), []);
@@ -47,7 +80,9 @@ export default function UserDashboardClient() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [voucherType, setVoucherType] = useState<string>('Amazon');
+  const [selectedVoucherId, setSelectedVoucherId] = useState<string>(
+    VOUCHERS[0]?.id ?? 'Amazon',
+  );
 
   const load = async () => {
     setLoading(true);
@@ -109,11 +144,15 @@ export default function UserDashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const selectedVoucher =
+    VOUCHERS.find((v) => v.id === selectedVoucherId) ?? VOUCHERS[0];
+
+  const effectiveMin = Math.max(MIN_PAYOUT, selectedVoucher.minAmount);
   const hasOpenRequest = redemptions.some((r) =>
     ['pending', 'approved', 'processing'].includes(r.status),
   );
   const canRequest =
-    (balance?.available_balance ?? 0) >= MIN_PAYOUT && !hasOpenRequest;
+    (balance?.available_balance ?? 0) >= effectiveMin && !hasOpenRequest;
 
   const requestPayout = async () => {
     if (!canRequest) return;
@@ -126,8 +165,8 @@ export default function UserDashboardClient() {
       const { error: rpcError } = await supabase.rpc(
         'create_redemption_request',
         {
-          p_amount: MIN_PAYOUT,
-          p_voucher_type: voucherType,
+          p_amount: effectiveMin,
+          p_voucher_type: selectedVoucher.id,
         },
       );
 
@@ -162,7 +201,7 @@ export default function UserDashboardClient() {
           Dein Bonus-Nest Dashboard
         </h1>
         <p className="text-sm text-slate-600">
-          Behalte dein Guthaben, deine bestätigten Abschlüsse und deine Auszahlungen im Blick.
+          Behalte dein Guthaben, deine Transaktionen und deine Auszahlungen im Blick.
         </p>
       </header>
 
@@ -170,7 +209,7 @@ export default function UserDashboardClient() {
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <BalanceCard
           label="Vorgemerkt"
-          hint="Bestätigte Abschlüsse, noch nicht auszahlbar"
+          hint="Bestätigte Transaktionen, noch nicht auszahlbar"
           value={balance?.pending_balance ?? 0}
           color="amber"
         />
@@ -183,7 +222,7 @@ export default function UserDashboardClient() {
         />
         <BalanceCard
           label="Bereits ausgezahlt"
-          hint="Summe aller freigegebenen Auszahlungen"
+          hint="Summe aller bestätigten Auszahlungen"
           value={balance?.total_paid ?? 0}
           color="sky"
         />
@@ -191,36 +230,57 @@ export default function UserDashboardClient() {
 
       {/* Auszahlungskarte */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold text-slate-900">
-              Auszahlung anfordern
+              Gutschein anfordern
             </h2>
             <p className="text-sm text-slate-600">
               Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und senden dir den Code,
-              sobald die Auszahlung freigegeben wurde.
+              sobald die Auszahlung bestätigt wurde.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-slate-600">Gutschein</label>
-              <select
-                value={voucherType}
-                onChange={(e) => setVoucherType(e.target.value)}
-                className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-              >
-                <option value="Amazon">Amazon</option>
-                <option value="Zalando">Zalando</option>
-                <option value="Rossmann">Rossmann</option>
-                <option value="Rewe">Rewe</option>
-                <option value="Aral">Aral</option>
-                <option value="toom">toom Baumarkt</option>
-                <option value="IKEA">IKEA</option>
-                <option value="DM">dm Drogerie</option>
-              </select>
-            </div>
+          {/* Gutschein-Auswahl im Grid */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {VOUCHERS.map((v) => {
+              const isActive = v.id === selectedVoucherId;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setSelectedVoucherId(v.id)}
+                  className={[
+                    'flex flex-col items-start rounded-xl border px-3 py-3 text-left text-sm transition',
+                    'bg-slate-50 hover:bg-slate-100',
+                    isActive
+                      ? 'border-slate-900 shadow-sm'
+                      : 'border-slate-200',
+                  ].join(' ')}
+                >
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      ab {fmtMoney.format(v.minAmount)}
+                    </span>
+                    <span
+                      className={[
+                        'h-4 w-4 rounded-full border',
+                        isActive
+                          ? 'border-slate-900 bg-slate-900'
+                          : 'border-slate-300 bg-white',
+                      ].join(' ')}
+                    />
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-slate-900">
+                    {v.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Button + Hinweise */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               onClick={requestPayout}
               disabled={!canRequest || busy}
@@ -228,36 +288,39 @@ export default function UserDashboardClient() {
             >
               {busy
                 ? 'Sende …'
-                : `Auszahlung anfordern (ab ${fmtMoney.format(MIN_PAYOUT)})`}
+                : `Gutschein anfordern (ab ${fmtMoney.format(effectiveMin)})`}
             </button>
-          </div>
-        </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-          <span>Mindestbetrag: {fmtMoney.format(MIN_PAYOUT)}</span>
-          {hasOpenRequest && (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
-              Es gibt bereits eine offene Auszahlungsanfrage.
-            </span>
-          )}
-          {!hasOpenRequest &&
-            (balance?.available_balance ?? 0) < MIN_PAYOUT && (
-              <span className="rounded-full bg-slate-50 px-2 py-0.5">
-                Noch nicht genug auszahlbares Guthaben für eine Auszahlung.
+            <div className="text-xs text-slate-500">
+              Mindestbetrag hängt vom gewählten Gutschein ab.
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+            {hasOpenRequest && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                Es gibt bereits eine offene Auszahlungsanfrage.
               </span>
             )}
-        </div>
+            {!hasOpenRequest &&
+              (balance?.available_balance ?? 0) < effectiveMin && (
+                <span className="rounded-full bg-slate-50 px-2 py-0.5">
+                  Noch nicht genug auszahlbares Guthaben für den ausgewählten Gutschein.
+                </span>
+              )}
+          </div>
 
-        {notice && (
-          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            {notice}
-          </div>
-        )}
-        {error && (
-          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            Fehler: {error}
-          </div>
-        )}
+          {notice && (
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              {notice}
+            </div>
+          )}
+          {error && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              Fehler: {error}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Zwei Spalten: Abschlüsse & Auszahlungen */}
@@ -266,14 +329,14 @@ export default function UserDashboardClient() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">
-              Abschlussverlauf
+              Transaktionsverlauf
             </h2>
             <span className="text-xs text-slate-500">
-              Letzte {leads.length} Abschlüsse
+              Letzte {leads.length} Transaktionen
             </span>
           </div>
           {leads.length === 0 ? (
-            <Empty label="Noch keine Abschlüsse." />
+            <Empty label="Noch keine Transaktionen." />
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-xs">
@@ -337,14 +400,14 @@ export default function UserDashboardClient() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">
-              Auszahlungen & Gutscheine
+              Verlauf deiner Teilnahmen
             </h2>
             <span className="text-xs text-slate-500">
-              Letzte {redemptions.length} Auszahlungen
+              Letzte {redemptions.length} Teilnahmen
             </span>
           </div>
           {redemptions.length === 0 ? (
-            <Empty label="Noch keine Auszahlungen." />
+            <Empty label="Noch keine Teilnahmen." />
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-xs">
@@ -562,6 +625,6 @@ function humanizeError(msg: string) {
   if (msg.includes('insufficient') || msg.includes('balance'))
     return 'Nicht genügend auszahlbares Guthaben.';
   if (msg.includes('minimum payout'))
-    return 'Mindestbetrag für Auszahlungen ist 5 €.';
+    return 'Mindestbetrag für Auszahlungen ist nicht erreicht.';
   return msg;
 }
