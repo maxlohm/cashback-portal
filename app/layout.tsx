@@ -3,7 +3,8 @@ import { Inter } from 'next/font/google'
 import Header from './components/header'
 import Footer from './components/footer'
 import type { Metadata } from 'next'
-import TrackSubid from './TrackSubid' // ✅ HIER
+import TrackSubid from './TrackSubid'
+import CookieBanner from './components/CookieBanner'   // ← hinzufügen
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,12 +22,17 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={inter.className}>
-        <TrackSubid /> {/* ✅ HIER */}
+        <TrackSubid />
         <Header />
+
         <main className="w-full px-4 sm:px-8 pt-8 pb-20 min-h-screen">
           {children}
         </main>
+
         <Footer />
+
+        {/* 👉 Cookie Banner immer ganz unten */}
+        <CookieBanner />
       </body>
     </html>
   )
