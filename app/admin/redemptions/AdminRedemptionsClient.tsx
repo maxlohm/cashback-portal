@@ -1,602 +1,625 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-type Status = 'pending' | 'approved' | 'processing' | 'paid' | 'rejected';
+type RedemptionStatus = 'pending' | 'approved' | 'processing' | 'paid' | 'rejected';
 
-type Row = {
+type RedemptionRow = {
   redemption_id: string;
   user_id: string;
-  user_email: string | null;
+  user_email: string;
   amount: number;
-  status: Status;
+  status: RedemptionStatus;
+  provider: string | null;
+  sku: string | null;
   created_at: string;
-  total_count: number; // kommt aus admin_list_redemptions (count(*) over ())
-  payout_method: 'voucher' | 'bank_transfer' | null;
-  voucher_type: string | null;
-  voucher_code: string | null;
+  payout_method?: 'voucher' | 'bank_transfer' | null;
+  voucher_type?: string | null;
+  voucher_code?: string | null;
 };
-
-type KPI = { totalPaid: number; totalPending: number; totalProcessing: number };
 
 const fmtMoney = new Intl.NumberFormat('de-DE', {
   style: 'currency',
   currency: 'EUR',
 });
-const fmtDate = new Intl.DateTimeFormat('de-DE', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-});
 
-export default function AdminRedemptionsClient() {
+const STATUS_LABEL: Record<RedemptionStatus, string> = {
+  pending: 'Offen',
+  approved: 'Freigegeben',
+  processing: 'In Bearbeitung',
+  paid: 'Ausgezahlt',
+  rejected: 'Abgelehnt',
+};
+
+const STATUS_COLORS: Record<RedemptionStatus, string> = {
+  pending: 'bg-slate-100 text-slate-800',
+  approved: 'bg-sky-100 text-sky-800',
+  processing: 'bg-amber-100 text-amber-800',
+  paid: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-rose-100 text-rose-800',
+};
+
+export default function RedemptionsClient() {
   const supabase = useMemo(() => createClientComponentClient(), []);
 
-  // Daten & UI-State
-  const [rows, setRows] = useState<Row[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<RedemptionRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Filter/Sort/Paging (serverseitig)
-  const [status, setStatus] = useState<'all' | Status>('all');
-  const [month, setMonth] = useState<string>('all'); // YYYY-MM
-  const [search, setSearch] = useState<string>(''); // email contains
-  const [sortKey, setSortKey] = useState<
-    'created_at' | 'user_email' | 'amount' | 'status'
-  >('created_at');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | RedemptionStatus
+  >('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all'); // 'all' | 'YYYY-MM'
+  const [search, setSearch] = useState<string>('');
 
-  // NEU: Filter nach Auszahlungsart
-  const [payoutFilter, setPayoutFilter] = useState<'all' | 'voucher' | 'bank_transfer'>('voucher');
-
-  // KPIs (aus DB)
-  const [kpi, setKpi] = useState<KPI>({
-    totalPaid: 0,
-    totalPending: 0,
-    totalProcessing: 0,
-  });
-
-  // Lokale Codes pro Redemption (für Gutscheineingabe)
-  const [voucherCodes, setVoucherCodes] = useState<Record<string, string>>({});
-  const [savingVoucherId, setSavingVoucherId] = useState<string | null>(null);
-
-  // Daten laden
+  // ========= Laden =========
   const load = async () => {
     setLoading(true);
+    setError(null);
 
-    const p_status = status === 'all' ? null : status;
-    const p_month = month === 'all' ? null : month;
-    const offset = (page - 1) * PAGE_SIZE;
+    try {
+      const { data, error: rpcError } = await supabase.rpc('admin_get_redemptions');
+      if (rpcError) throw rpcError;
 
-    const [{ data, error }, { data: kpiData, error: kpiErr }] = await Promise.all([
-      supabase.rpc('admin_list_redemptions', {
-        p_status,
-        p_month,
-        p_search: search || null,
-        p_sort: sortKey,
-        p_dir: sortDir,
-        p_limit: PAGE_SIZE,
-        p_offset: offset,
-      }),
-      supabase.rpc('admin_redemptions_kpis', {
-        p_month,
-        p_search: search || null,
-      }),
-    ]);
-
-    if (error) {
-      console.error('admin_list_redemptions:', error.message);
-      setRows([]);
-      setTotal(0);
-    } else {
-      const rawList = (data || []) as any[];
-      const list: Row[] = rawList.map((r) => ({
+      const mapped: RedemptionRow[] = (data || []).map((r: any) => ({
         redemption_id: r.redemption_id,
         user_id: r.user_id,
-        user_email: r.user_email ?? null,
-        amount: Number(r.amount),
-        status: r.status as Status,
+        user_email: r.user_email,
+        amount: Number(r.amount ?? 0),
+        status: r.status as RedemptionStatus,
+        provider: r.provider ?? null,
+        sku: r.sku ?? null,
         created_at: r.created_at,
-        total_count: Number(r.total_count ?? rawList.length),
-        payout_method: (r.payout_method ?? null) as any,
+        payout_method: r.payout_method ?? null,
         voucher_type: r.voucher_type ?? null,
         voucher_code: r.voucher_code ?? null,
       }));
-      setRows(list);
-      setTotal(list.length ? Number(list[0].total_count) : 0);
-    }
 
-    if (!kpiErr && Array.isArray(kpiData) && kpiData[0]) {
-      const k = kpiData[0] as any;
-      setKpi({
-        totalPaid: Number(k.total_paid ?? 0),
-        totalPending: Number(k.total_pending ?? 0),
-        totalProcessing: Number(k.total_processing ?? 0),
-      });
+      setRows(mapped);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? 'Fehler beim Laden der Auszahlungen.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  // Initial + bei Filter/Sort/Paging
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, month, sortKey, sortDir, page]);
+  }, []);
 
-  // Debounce auf die Suche
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setPage(1);
-      load();
-    }, 300);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  // ========= Filter-Logik =========
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
 
-  const toggleSort = (k: typeof sortKey) => {
-    if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else {
-      setSortKey(k);
-      setSortDir('asc');
-    }
-  };
+      if (monthFilter !== 'all') {
+        const d = new Date(r.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (key !== monthFilter) return false;
+      }
 
-  // Optimistisches Status-Update (für Nicht-Gutschein-Fälle)
-  const updateStatus = async (id: string, newStatus: Status) => {
-    setBusyId(id);
-    const prev = rows;
-    const next = rows.map((r) =>
-      r.redemption_id === id ? { ...r, status: newStatus } : r,
-    );
-    setRows(next);
+      if (search.trim()) {
+        const s = search.trim().toLowerCase();
+        const hay = [
+          r.user_email,
+          r.provider ?? '',
+          r.sku ?? '',
+          r.voucher_type ?? '',
+          r.voucher_code ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
 
-    const { error } = await supabase.rpc('admin_update_redemption_status', {
-      redemption_id: id,
-      new_status: newStatus,
+      return true;
     });
+  }, [rows, statusFilter, monthFilter, search]);
 
-    setBusyId(null);
+  // ========= KPIs =========
+  const kpis = useMemo(() => {
+    const total = rows.reduce((a, r) => a + r.amount, 0);
+    const pending = rows
+      .filter((r) =>
+        ['pending', 'approved', 'processing'].includes(r.status),
+      )
+      .reduce((a, r) => a + r.amount, 0);
+    const paid = rows
+      .filter((r) => r.status === 'paid')
+      .reduce((a, r) => a + r.amount, 0);
 
-    if (error) {
-      setRows(prev);
-      alert('Fehler: ' + error.message);
-      return;
+    return { total, pending, paid };
+  }, [rows]);
+
+  // Monate für Filter
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      const d = new Date(r.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      set.add(key);
+    });
+    return Array.from(set).sort().reverse();
+  }, [rows]);
+
+  // ========= Status ändern =========
+  const updateStatus = async (row: RedemptionRow, newStatus: RedemptionStatus) => {
+    setBusyId(row.redemption_id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        'admin_update_redemption_status',
+        {
+          redemption_id: row.redemption_id,
+          new_status: newStatus,
+        },
+      );
+
+      if (rpcError) throw rpcError;
+
+      setRows((prev) =>
+        prev.map((r) =>
+          r.redemption_id === row.redemption_id ? { ...r, status: newStatus } : r,
+        ),
+      );
+      setNotice(`Status für ${row.user_email} → ${STATUS_LABEL[newStatus]}`);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? 'Fehler beim Aktualisieren des Status.');
+    } finally {
+      setBusyId(null);
+      setTimeout(() => setNotice(null), 2500);
     }
-
-    setNotice(`Status aktualisiert: ${newStatus}`);
-    load();
-    setTimeout(() => setNotice(null), 2000);
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // ========= Gutscheincode speichern =========
+  const updateVoucherCode = async (row: RedemptionRow, voucherCode: string) => {
+    const trimmed = voucherCode.trim();
+    if (!trimmed && !row.voucher_code) return;
 
-  // NEU: clientseitiger Filter nach payout_method
-  const visibleRows = rows.filter((r) =>
-    payoutFilter === 'all' ? true : r.payout_method === payoutFilter,
-  );
+    setBusyId(row.redemption_id);
+    setError(null);
+    setNotice(null);
 
+    try {
+      const { error: updErr } = await supabase
+        .from('redemptions')
+        .update({
+          voucher_code: trimmed || null,
+          payout_method: trimmed ? 'voucher' : row.payout_method ?? null,
+        })
+        .eq('id', row.redemption_id);
+
+      if (updErr) throw updErr;
+
+      setRows((prev) =>
+        prev.map((r) =>
+          r.redemption_id === row.redemption_id
+            ? {
+                ...r,
+                voucher_code: trimmed || null,
+                payout_method: trimmed ? 'voucher' : r.payout_method,
+              }
+            : r,
+        ),
+      );
+      setNotice(`Gutscheincode für ${row.user_email} gespeichert.`);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? 'Fehler beim Speichern des Gutscheincodes.');
+    } finally {
+      setBusyId(null);
+      setTimeout(() => setNotice(null), 2500);
+    }
+  };
+
+  // ========= CSV-Export =========
   const exportCsv = () => {
     const header = [
-      'created_at',
-      'user_email',
-      'user_id',
-      'amount',
-      'status',
-      'payout_method',
-      'voucher_type',
+      'Datum',
+      'User',
+      'Betrag',
+      'Status',
+      'Art',
+      'Gutschein',
+      'Code',
+      'Provider',
+      'SKU',
     ];
-    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const lines = [header.join(',')];
-    visibleRows.forEach((r) => {
-      lines.push(
-        [
-          r.created_at,
-          r.user_email || '',
-          r.user_id,
-          r.amount.toFixed(2),
-          r.status,
-          r.payout_method ?? '',
-          r.voucher_type ?? '',
-        ]
-          .map((v) => escape(String(v)))
-          .join(','),
-      );
+
+    const rowsCsv = filteredRows.map((r) => {
+      const d = new Date(r.created_at).toLocaleString('de-DE');
+      const method =
+        r.payout_method === 'voucher'
+          ? 'Gutschein'
+          : r.payout_method === 'bank_transfer'
+          ? 'Überweisung'
+          : '';
+      return [
+        d,
+        r.user_email,
+        r.amount.toFixed(2).replace('.', ','),
+        STATUS_LABEL[r.status],
+        method,
+        r.voucher_type ?? '',
+        r.voucher_code ?? '',
+        r.provider ?? '',
+        r.sku ?? '',
+      ];
     });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+
+    const csv =
+      [header, ...rowsCsv]
+        .map((line) =>
+          line.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(';'),
+        )
+        .join('\n') + '\n';
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `redemptions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `redemptions_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // NEU: Gutschein abschließen → API /admin/voucher-complete
-  const completeVoucher = async (row: Row) => {
-    const code =
-      (voucherCodes[row.redemption_id] ?? '').trim() ||
-      (row.voucher_code ?? '').trim();
-
-    if (!code) {
-      alert('Gutscheincode darf nicht leer sein.');
-      return;
-    }
-    setSavingVoucherId(row.redemption_id);
-    setNotice(null);
-
-    try {
-      const res = await fetch('/api/admin/voucher-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          redemptionId: row.redemption_id,
-          voucherCode: code,
-          voucherType: row.voucher_type,
-          voucherNotes: null,
-          userEmail: row.user_email ?? '',
-          amount: row.amount,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Fehler beim Abschließen');
-      }
-
-      // optional: Response auswerten, aber reload reicht
-      await load();
-      setNotice('Gutschein gespeichert und E-Mail angestoßen.');
-      setTimeout(() => setNotice(null), 2500);
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message ?? 'Fehler beim Abschließen');
-    } finally {
-      setSavingVoucherId(null);
-    }
-  };
-
+  // ========= Render =========
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Admin – Auszahlungen</h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Admin – Auszahlungen & Guthaben
+        </h1>
+        <p className="text-sm text-slate-600">
+          Hier siehst du alle Auszahlungsanfragen, kannst Status ändern und
+          Gutscheincodes pflegen.
+        </p>
+      </header>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard label="Bereits ausgezahlt" value={kpi.totalPaid} />
-        <KpiCard label="Offen (pending)" value={kpi.totalPending} />
-        <KpiCard label="In Bearbeitung" value={kpi.totalProcessing} />
-      </div>
+      <section className="grid gap-4 md:grid-cols-3">
+        <Kpi
+          label="Gesamtvolumen"
+          value={fmtMoney.format(kpis.total)}
+          hint="Summe aller Auszahlungen (brutto)"
+        />
+        <Kpi
+          label="Offen / in Bearbeitung"
+          value={fmtMoney.format(kpis.pending)}
+          hint="pending / approved / processing"
+        />
+        <Kpi
+          label="Bereits ausgezahlt"
+          value={fmtMoney.format(kpis.paid)}
+          hint="Status = paid"
+        />
+      </section>
 
-      {/* Filter */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500">Status</label>
-          <select
-            value={status}
-            onChange={(e) => {
-              setPage(1);
-              setStatus(e.target.value as any);
-            }}
-            className="border p-2 rounded min-w-[160px]"
-          >
-            <option value="all">Alle</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="processing">Processing</option>
-            <option value="paid">Paid</option>
-            <option value="rejected">Rejected</option>
-          </select>
+      {/* Filter & Aktionen */}
+      <section className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'pending', 'approved', 'processing', 'paid', 'rejected'] as const).map(
+            (s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={[
+                  'rounded border px-3 py-1.5 text-xs',
+                  statusFilter === s
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-800',
+                ].join(' ')}
+              >
+                {s === 'all'
+                  ? 'Alle'
+                  : s === 'pending'
+                  ? 'Offen'
+                  : s === 'approved'
+                  ? 'Freigegeben'
+                  : s === 'processing'
+                  ? 'In Bearbeitung'
+                  : s === 'paid'
+                  ? 'Ausgezahlt'
+                  : 'Abgelehnt'}
+              </button>
+            ),
+          )}
         </div>
 
-        {/* NEU: Auszahlungsart */}
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500">Auszahlungsart</label>
-          <select
-            value={payoutFilter}
-            onChange={(e) => setPayoutFilter(e.target.value as any)}
-            className="border p-2 rounded min-w-[160px]"
-          >
-            <option value="all">Alle</option>
-            <option value="voucher">Gutschein</option>
-            <option value="bank_transfer">Banküberweisung</option>
-          </select>
-        </div>
+        <select
+          className="rounded border border-slate-200 bg-white px-2 py-1.5 text-xs"
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+        >
+          <option value="all">Alle Monate</option>
+          {monthOptions.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
 
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500">Monat</label>
-          <input
-            type="month"
-            value={month === 'all' ? '' : month}
-            onChange={(e) => {
-              setPage(1);
-              setMonth(e.target.value || 'all');
-            }}
-            className="border p-2 rounded"
-          />
-        </div>
-        <div className="flex flex-col flex-1 min-w-[200px]">
-          <label className="text-xs text-gray-500">E-Mail</label>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Suchen…"
-            className="border p-2 rounded w-full"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Suche: E-Mail / Gutschein / Provider…"
+          className="min-w-[180px] flex-1 rounded border border-slate-200 px-2 py-1.5 text-xs"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
         <button
           onClick={exportCsv}
-          className="px-3 py-2 border rounded bg-white hover:shadow"
-          disabled={loading}
+          className="ml-auto rounded border border-slate-200 bg-white px-3 py-1.5 text-xs"
         >
           CSV exportieren
         </button>
-      </div>
-
-      {notice && <div className="text-green-600 text-sm">{notice}</div>}
+      </section>
 
       {/* Tabelle */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <Th
-                onClick={() => toggleSort('created_at')}
-                active={sortKey === 'created_at'}
-                dir={sortDir}
-              >
-                Datum
-              </Th>
-              <Th
-                onClick={() => toggleSort('user_email')}
-                active={sortKey === 'user_email'}
-                dir={sortDir}
-              >
-                User
-              </Th>
-              <Th
-                onClick={() => toggleSort('amount')}
-                active={sortKey === 'amount'}
-                dir={sortDir}
-              >
-                Betrag
-              </Th>
-              <th className="p-2">Methode</th>
-              <th className="p-2">Gutschein-Typ</th>
-              <Th
-                onClick={() => toggleSort('status')}
-                active={sortKey === 'status'}
-                dir={sortDir}
-              >
-                Status
-              </Th>
-              <th className="p-2">Aktionen</th>
+      <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-full text-xs">
+          <thead className="border-b border-slate-200 bg-slate-50">
+            <tr>
+              <Th>Datum</Th>
+              <Th>User</Th>
+              <Th>Betrag</Th>
+              <Th>Status</Th>
+              <Th>Art</Th>
+              <Th>Gutschein</Th>
+              <Th>Code</Th>
+              <Th>Provider</Th>
+              <Th>SKU</Th>
+              <Th>Aktionen</Th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {filteredRows.length === 0 && (
               <tr>
-                <td className="p-4" colSpan={7}>
-                  Lade…
+                <td
+                  colSpan={10}
+                  className="py-6 text-center text-slate-500"
+                >
+                  Keine Auszahlungen gefunden.
                 </td>
               </tr>
-            ) : visibleRows.length === 0 ? (
-              <tr>
-                <td className="p-4" colSpan={7}>
-                  Keine Daten
-                </td>
-              </tr>
-            ) : (
-              visibleRows.map((r) => {
-                const codeValue =
-                  voucherCodes[r.redemption_id] ??
-                  r.voucher_code ??
-                  '';
-
-                const isVoucher = r.payout_method === 'voucher';
-
-                return (
-                  <tr key={r.redemption_id} className="border-b">
-                    <td className="p-2">
-                      {fmtDate.format(new Date(r.created_at))}
-                    </td>
-                    <td className="p-2">{r.user_email || r.user_id}</td>
-                    <td className="p-2">{fmtMoney.format(r.amount)}</td>
-                    <td className="p-2">
-                      {r.payout_method ?? '-'}
-                    </td>
-                    <td className="p-2">{r.voucher_type ?? '-'}</td>
-                    <td className="p-2">
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td className="p-2">
-                      {isVoucher ? (
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <input
-                            type="text"
-                            value={codeValue}
-                            onChange={(e) =>
-                              setVoucherCodes((prev) => ({
-                                ...prev,
-                                [r.redemption_id]: e.target.value,
-                              }))
-                            }
-                            placeholder="Gutscheincode"
-                            className="border p-1 rounded text-xs w-40"
-                          />
-                          <Btn
-                            disabled={savingVoucherId === r.redemption_id}
-                            onClick={() => completeVoucher(r)}
-                            label={
-                              savingVoucherId === r.redemption_id
-                                ? 'Speichere…'
-                                : 'Gutschein erledigt'
-                            }
-                            kind="dark"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {r.status === 'pending' && (
-                            <>
-                              <Btn
-                                disabled={busyId === r.redemption_id}
-                                onClick={() =>
-                                  updateStatus(r.redemption_id, 'approved')
-                                }
-                                label="Approve"
-                                kind="green"
-                              />
-                              <Btn
-                                disabled={busyId === r.redemption_id}
-                                onClick={() =>
-                                  updateStatus(r.redemption_id, 'rejected')
-                                }
-                                label="Reject"
-                                kind="red"
-                              />
-                            </>
-                          )}
-                          {r.status === 'approved' && (
-                            <Btn
-                              disabled={busyId === r.redemption_id}
-                              onClick={() =>
-                                updateStatus(r.redemption_id, 'processing')
-                              }
-                              label="Processing"
-                              kind="blue"
-                            />
-                          )}
-                          {r.status === 'processing' && (
-                            <Btn
-                              disabled={busyId === r.redemption_id}
-                              onClick={() =>
-                                updateStatus(r.redemption_id, 'paid')
-                              }
-                              label="Mark Paid"
-                              kind="dark"
-                            />
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
             )}
+
+            {filteredRows.map((r) => (
+              <tr
+                key={r.redemption_id}
+                className="border-b border-slate-100 last:border-0"
+              >
+                <Td>{new Date(r.created_at).toLocaleString('de-DE')}</Td>
+
+                <Td className="max-w-[220px]">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-900">
+                      {r.user_email}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {r.user_id}
+                    </span>
+                  </div>
+                </Td>
+
+                <Td>{fmtMoney.format(r.amount)}</Td>
+
+                <Td>
+                  <span
+                    className={[
+                      'inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium',
+                      STATUS_COLORS[r.status],
+                    ].join(' ')}
+                  >
+                    {STATUS_LABEL[r.status]}
+                  </span>
+                </Td>
+
+                <Td>
+                  {r.payout_method === 'voucher'
+                    ? 'Gutschein'
+                    : r.payout_method === 'bank_transfer'
+                    ? 'Überweisung'
+                    : '–'}
+                </Td>
+
+                <Td>{r.voucher_type ?? '–'}</Td>
+
+                <Td>
+                  <VoucherEditor
+                    row={r}
+                    disabled={busyId === r.redemption_id}
+                    onSave={updateVoucherCode}
+                  />
+                </Td>
+
+                <Td>{r.provider ?? '–'}</Td>
+                <Td>{r.sku ?? '–'}</Td>
+
+                <Td>
+                  <div className="flex flex-wrap gap-1">
+                    <StatusButton
+                      label="Offen"
+                      target="pending"
+                      current={r.status}
+                      onClick={() => updateStatus(r, 'pending')}
+                      busy={busyId === r.redemption_id}
+                    />
+                    <StatusButton
+                      label="Freigeben"
+                      target="approved"
+                      current={r.status}
+                      onClick={() => updateStatus(r, 'approved')}
+                      busy={busyId === r.redemption_id}
+                    />
+                    <StatusButton
+                      label="In Bearbeitung"
+                      target="processing"
+                      current={r.status}
+                      onClick={() => updateStatus(r, 'processing')}
+                      busy={busyId === r.redemption_id}
+                    />
+                    <StatusButton
+                      label="Paid"
+                      target="paid"
+                      current={r.status}
+                      onClick={() => updateStatus(r, 'paid')}
+                      busy={busyId === r.redemption_id}
+                    />
+                    <StatusButton
+                      label="Ablehnen"
+                      target="rejected"
+                      current={r.status}
+                      onClick={() => updateStatus(r, 'rejected')}
+                      busy={busyId === r.redemption_id}
+                    />
+                  </div>
+                </Td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
+      </section>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-gray-500">
-          {visibleRows.length} Einträge (gesamt {total}) • Seite {page} /{' '}
-          {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+      {loading && (
+        <div className="text-xs text-slate-500">Lade Daten …</div>
+      )}
+      {notice && (
+        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          {notice}
         </div>
-        <div className="flex gap-2">
-          <button
-            className="px-2 py-1 border rounded"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Zurück
-          </button>
-          <button
-            className="px-2 py-1 border rounded"
-            disabled={page >= Math.ceil(total / PAGE_SIZE) || loading}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Weiter
-          </button>
+      )}
+      {error && (
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          Fehler: {error}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-/* =================== kleine Hilfs-Components =================== */
+/* ==== UI-Helpers ==== */
 
-function Th({
-  children,
-  onClick,
-  active,
-  dir,
-}: {
-  children: any;
-  onClick: () => void;
-  active: boolean;
-  dir: 'asc' | 'desc';
+function Kpi(props: {
+  label: string;
+  value: string;
+  hint?: string;
 }) {
+  const { label, value, hint } = props;
   return (
-    <th
-      className={`p-2 cursor-pointer select-none ${
-        active ? 'underline' : ''
-      }`}
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-1">
-        <span>{children}</span>
-        {active && <span>{dir === 'asc' ? '▲' : '▼'}</span>}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
       </div>
+      <div className="mt-1 text-xl font-semibold text-slate-900">
+        {value}
+      </div>
+      {hint && (
+        <div className="mt-1 text-[11px] text-slate-500">{hint}</div>
+      )}
+    </div>
+  );
+}
+
+function Th({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-3 py-2 text-left text-[11px] font-semibold text-slate-600">
+      {children}
     </th>
   );
 }
 
-function Btn({
-  onClick,
-  label,
-  kind,
-  disabled,
+function Td({
+  children,
+  className = '',
 }: {
-  onClick: () => void;
-  label: string;
-  kind: 'green' | 'red' | 'blue' | 'dark';
-  disabled?: boolean;
+  children: React.ReactNode;
+  className?: string;
 }) {
-  const map: Record<string, string> = {
-    green: 'bg-green-500',
-    red: 'bg-red-500',
-    blue: 'bg-blue-500',
-    dark: 'bg-gray-800',
-  };
+  return (
+    <td
+      className={`px-3 py-2 align-top text-[11px] text-slate-800 ${className}`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function StatusButton(props: {
+  label: string;
+  target: RedemptionStatus;
+  current: RedemptionStatus;
+  onClick: () => void;
+  busy: boolean;
+}) {
+  const { label, target, current, onClick, busy } = props;
+  const active = current === target;
+
   return (
     <button
-      disabled={disabled}
+      disabled={busy || active}
       onClick={onClick}
-      className={`px-2 py-1 text-white rounded ${
-        map[kind]
-      } hover:opacity-90 disabled:opacity-50`}
+      className={[
+        'rounded border px-2 py-0.5 text-[10px]',
+        active
+          ? 'border-slate-900 bg-slate-900 text-white'
+          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+        busy ? 'cursor-wait opacity-60' : '',
+      ].join(' ')}
     >
       {label}
     </button>
   );
 }
 
-function StatusBadge({ status }: { status: Status }) {
-  const map: Record<string, string> = {
-    pending: 'bg-gray-200 text-gray-800',
-    approved: 'bg-blue-200 text-blue-900',
-    processing: 'bg-yellow-200 text-yellow-900',
-    paid: 'bg-green-200 text-green-900',
-    rejected: 'bg-red-200 text-red-900',
-  };
-  return (
-    <span className={`px-2 py-1 text-xs rounded ${map[status] || 'bg-gray-200'}`}>
-      {status}
-    </span>
-  );
-}
+function VoucherEditor(props: {
+  row: RedemptionRow;
+  disabled: boolean;
+  onSave: (row: RedemptionRow, code: string) => void;
+}) {
+  const { row, disabled, onSave } = props;
+  const [value, setValue] = useState(row.voucher_code ?? '');
+  const [dirty, setDirty] = useState(false);
 
-function KpiCard({ label, value }: { label: string; value: number }) {
-  const safe = Number.isFinite(value) ? value : 0;
+  useEffect(() => {
+    setValue(row.voucher_code ?? '');
+    setDirty(false);
+  }, [row.voucher_code, row.redemption_id]);
+
+  const handleSave = () => {
+    if (!dirty) return;
+    onSave(row, value);
+    setDirty(false);
+  };
+
   return (
-    <div className="p-4 rounded-xl border bg-white shadow">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-2xl font-bold">{safe.toFixed(2)} €</div>
+    <div className="flex items-center gap-1">
+      <input
+        type="text"
+        className="w-32 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+        placeholder="Code…"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setDirty(true);
+        }}
+      />
+      <button
+        disabled={disabled || !dirty}
+        onClick={handleSave}
+        className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] disabled:opacity-40"
+      >
+        Save
+      </button>
     </div>
   );
 }
