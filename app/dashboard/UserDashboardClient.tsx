@@ -89,10 +89,17 @@ export default function UserDashboardClient() {
     setError(null);
 
     try {
-      // Balance
-      const { data: bal, error: balErr } = await supabase.rpc('get_user_balance');
+      // Balance (RPC gibt ein Array mit genau einem Datensatz zurück)
+      const { data: balRaw, error: balErr } = await supabase.rpc('get_user_balance');
       if (balErr) throw balErr;
-      setBalance(bal as Balance);
+
+      let bal: Balance | null = null;
+      if (Array.isArray(balRaw)) {
+        bal = (balRaw[0] as Balance) ?? null;
+      } else if (balRaw) {
+        bal = balRaw as Balance;
+      }
+      setBalance(bal);
 
       // Leads (mit Offer)
       const { data: leadRows } = await supabase
