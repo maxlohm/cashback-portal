@@ -1,37 +1,137 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+// app/api/partner-lead/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => null)
-  if (!body?.api_key || !body?.click_id) return NextResponse.json({ error: 'Bad Request' }, { status: 400 })
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0] || 'unknown'
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+// gemeinsame Logik für GET + POST
+async function handlePartnerLead(req: Request) {
+  // --- 1) Eingaben einlesen (GET-Query oder JSON-Body) ---
+  const method = req.method.toUpperCase();
 
-  // Rate limit: 1 per 5s per ip+click
-  const { data: allowed, error: thrErr } = await supabase.rpc('throttle_touch', { p_key: `${ip}:${body.click_id}`, window_seconds: 5 })
-  if (thrErr) return NextResponse.json({ error: thrErr.message }, { status: 500 })
-  if (!allowed) return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 })
+  let api_key: string | null = null;
+  let subid: string | null = null;
+  let click_id: string | null = null;
+  let amount: number | null = null;
 
-  // Partner lookup
-  const { data: partner, error: kErr } = await supabase.from('profiles').select('id, partner_subid').eq('id', body.api_key).single()
-  if (kErr || !partner) return NextResponse.json({ error: 'Invalid api_key' }, { status: 401 })
+  if (method === 'GET') {
+    const url = new URL(req.url);
+    api_key = url.searchParams.get('api_key');
+    subid = url.searchParams.get('subid');
+    const amountRaw = url.searchParams.get('amount');
+    amount = amountRaw != null ? Number(amountRaw) : null;
+  } else if (method === 'POST') {
+    const body = await req.json().catch(() => null);
+    if (body) {
+      api_key = body.api_key ?? null;
+      subid = body.subid ?? null;
+      click_id = body.click_id ?? null;
+      if (typeof body.amount === 'number') amount = body.amount;
+      if (typeof body.amount === 'string') amount = Number(body.amount);
+    }
+  }
 
-  // Click exists & belongs to partner
-  const { data: click, error: cErr } = await supabase.from('clicks').select('id, influencer_id').eq('id', body.click_id).single()
-  if (cErr || !click) return NextResponse.json({ error: 'click_not_found' }, { status: 404 })
-  if (click.influencer_id !== partner.id) return NextResponse.json({ error: 'click_not_owned' }, { status: 403 })
+  if (!api_key || (!subid && !click_id)) {
+    return NextResponse.json({ error: 'missing_params' }, { status: 400 });
+  }
 
-  // Lead idempotent eintragen
-  const amount = typeof body.amount === 'number' && body.amount >= 0 ? body.amount : null
-  const { data: leadExisting } = await supabase.from('leads').select('id').eq('click_id', body.click_id).maybeSingle()
-  if (leadExisting) return NextResponse.json({ ok: true, status: 'exists' }, { status: 200 })
+  // --- 2) Rate Limit: 1 / 5s pro ip+subid/click_id ---
+  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0] || 'unknown';
+  const throttleKey = `${ip}:${subid || click_id || 'unknown'}`;
+
+  const { data: allowed, error: thrErr } = await supabase.rpc('throttle_touch', {
+    p_key: throttleKey,
+    window_seconds: 5,
+  });
+  if (thrErr) {
+    return NextResponse.json({ error: thrErr.message }, { status: 500 });
+  }
+  if (!allowed) {
+    // lieber 200 zurückgeben, damit FinanceAds nicht meckert
+    return NextResponse.json({ status: 'rate_limited' }, { status: 200 });
+  }
+
+  // --- 3) Netzwerk anhand api_key validieren (affiliate_networks) ---
+  const { data: network, error: netErr } = await supabase
+    .from('affiliate_networks')
+    .select('id, name, active')
+    .eq('api_key', api_key)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (netErr || !network) {
+    return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
+  }
+
+  // --- 4) passenden Click finden (primär über subid, optional über click_id) ---
+  let click;
+  if (subid) {
+    const { data, error } = await supabase
+      .from('clicks')
+      .select('id, user_id, offer_id, influencer_id')
+      .eq('subid_token', subid)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    click = data;
+  } else if (click_id) {
+    const { data, error } = await supabase
+      .from('clicks')
+      .select('id, user_id, offer_id, influencer_id')
+      .eq('id', click_id)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    click = data;
+  }
+
+  if (!click) {
+    // für FinanceAds-Test lieber 200 zurückgeben
+    return NextResponse.json({ status: 'click_not_found' }, { status: 200 });
+  }
+
+  // --- 5) Lead idempotent anlegen ---
+  const { data: existingLead, error: existErr } = await supabase
+    .from('leads')
+    .select('id')
+    .eq('click_id', click.id)
+    .maybeSingle();
+
+  if (existErr) {
+    return NextResponse.json({ error: existErr.message }, { status: 500 });
+  }
+
+  if (existingLead) {
+    return NextResponse.json({ status: 'exists' }, { status: 200 });
+  }
+
+  const safeAmount = amount != null && amount >= 0 ? amount : null;
 
   const { error: insErr } = await supabase.from('leads').insert({
-    click_id: body.click_id, confirmed: true, confirmed_at: new Date().toISOString(),
-    amount, payout_ready: true
-  })
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    click_id: click.id,
+    confirmed: true,
+    confirmed_at: new Date().toISOString(),
+    amount: safeAmount,
+    payout_ready: true,
+  });
 
-  return NextResponse.json({ ok: true }, { status: 201 })
+  if (insErr) {
+    return NextResponse.json({ error: insErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ status: 'created' }, { status: 201 });
+}
+
+// Next.js App Router: GET und POST exportieren
+export async function GET(req: Request) {
+  return handlePartnerLead(req);
+}
+
+export async function POST(req: Request) {
+  return handlePartnerLead(req);
 }

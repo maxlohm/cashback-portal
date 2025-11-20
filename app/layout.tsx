@@ -1,10 +1,10 @@
+// app/layout.tsx
 import './globals.css'
 import { Inter } from 'next/font/google'
 import Header from './components/header'
 import Footer from './components/footer'
-import type { Metadata } from 'next'
 import TrackSubid from './TrackSubid'
-import CookieBanner from './components/CookieBanner'   // ← hinzufügen
+import type { Metadata } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,15 +24,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <TrackSubid />
         <Header />
-
         <main className="w-full px-4 sm:px-8 pt-8 pb-20 min-h-screen">
           {children}
         </main>
-
         <Footer />
-
-        {/* 👉 Cookie Banner immer ganz unten */}
-        <CookieBanner />
       </body>
     </html>
   )

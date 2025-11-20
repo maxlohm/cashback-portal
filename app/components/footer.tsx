@@ -9,12 +9,34 @@ export default function Footer() {
   const [loadingAuth, setLoadingAuth] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+
     const checkUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      setLoggedIn(!!data?.user)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!isMounted) return
+
+      setLoggedIn(!!user)
       setLoadingAuth(false)
     }
+
     checkUser()
+
+    // Login/Logout mitbekommen
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!isMounted) return
+        setLoggedIn(!!session?.user)
+        setLoadingAuth(false)
+      },
+    )
+
+    return () => {
+      isMounted = false
+      authListener?.subscription.unsubscribe()
+    }
   }, [])
 
   const handleLogout = async () => {
@@ -25,11 +47,14 @@ export default function Footer() {
   return (
     <footer className="mt-20 bg-[#F1E8CB] text-[#003b5b] border-t border-[#d6c4a1] px-4 sm:px-8 py-10 text-sm">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-        
         <div>
           <h4 className="font-semibold mb-2">Weitere beliebte Deals</h4>
           <ul className="space-y-1">
-            <li><Link href="/" className="hover:underline">Zur Startseite</Link></li>
+            <li>
+              <Link href="/" className="hover:underline">
+                Zur Startseite
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -44,7 +69,9 @@ export default function Footer() {
             ) : loggedIn ? (
               <>
                 <li>
-                  <Link href="/dashboard" className="hover:underline">Dashboard</Link>
+                  <Link href="/dashboard" className="hover:underline">
+                    Dashboard
+                  </Link>
                 </li>
                 <li>
                   <button
@@ -58,27 +85,55 @@ export default function Footer() {
             ) : (
               <>
                 <li>
-                  <Link href="/login" className="hover:underline">Login</Link>
+                  <Link href="/login" className="hover:underline">
+                    Login
+                  </Link>
                 </li>
                 <li>
-                  <Link href="/register" className="hover:underline">Registrieren</Link>
-                </li>
-                <li>
-                  <Link href="/partner" className="hover:underline">Werde Partner</Link>
+                  <Link href="/register" className="hover:underline">
+                    Registrieren
+                  </Link>
                 </li>
               </>
             )}
+
+            {/* Werde Partner: IMMER angezeigt */}
+            <li>
+              <Link href="/partner" className="hover:underline">
+                Werde Partner
+              </Link>
+            </li>
           </ul>
         </div>
 
         <div>
           <h4 className="font-semibold mb-2">Sitemap</h4>
           <ul className="space-y-1">
-            <li><Link href="/faq" className="hover:underline">FAQ</Link></li>
-            <li><Link href="/support" className="hover:underline">Support</Link></li>
-            <li><Link href="/datenschutz" className="hover:underline">Datenschutz</Link></li>
-            <li><Link href="/agb" className="hover:underline">Nutzungsbedingungen</Link></li>
-            <li><Link href="/impressum" className="hover:underline">Impressum</Link></li>
+            <li>
+              <Link href="/faq" className="hover:underline">
+                FAQ
+              </Link>
+            </li>
+            <li>
+              <Link href="/support" className="hover:underline">
+                Support
+              </Link>
+            </li>
+            <li>
+              <Link href="/datenschutz" className="hover:underline">
+                Datenschutz
+              </Link>
+            </li>
+            <li>
+              <Link href="/agb" className="hover:underline">
+                Nutzungsbedingungen
+              </Link>
+            </li>
+            <li>
+              <Link href="/impressum" className="hover:underline">
+                Impressum
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -86,9 +141,12 @@ export default function Footer() {
           <h4 className="font-semibold mb-2">Kontakt und Service</h4>
           <address className="not-italic space-y-1">
             <p>
-              Bonus-Nest<br />
-              Felix Maximilian Lohmann<br />
-              Grindelallee 44<br />
+              Bonus-Nest
+              <br />
+              Felix Maximilian Lohmann
+              <br />
+              Grindelallee 44
+              <br />
               20146 Hamburg
             </p>
             <a

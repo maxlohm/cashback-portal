@@ -83,9 +83,31 @@ export default function AGBPage() {
               zur aktualisierten Fassung.
             </p>
           </section>
+<section>
+  <h2 className="text-lg sm:text-xl font-semibold">9. Guthaben, Verfall und Beendigung des Dienstes</h2>
+  <p>
+    Nicht eingelöste Prämienguthaben bleiben dem Nutzer grundsätzlich erhalten und können 
+    über die angebotenen Auszahlungsmethoden angefordert werden. Bonus-Nest ist jedoch 
+    berechtigt, nicht abgerufene Guthaben verfallen zu lassen, wenn ein Nutzerkonto über 
+    einen Zeitraum von <strong>12 Monaten keine Aktivität</strong> aufweist 
+    (z.&nbsp;B. kein Login, keine neue bestätigte Aktion, keine Auszahlungsanforderung). 
+    Vor dem Verfall informiert Bonus-Nest die betroffenen Nutzer rechtzeitig per E-Mail.
+  </p>
+  <p className="mt-3">
+    Stellt Bonus-Nest den Dienst dauerhaft ein, haben Nutzer für einen Zeitraum von 
+    <strong>30 Tagen</strong> nach entsprechender Ankündigung die Möglichkeit, noch 
+    auszahlbares Guthaben anzufordern. Nach Ablauf dieser Frist können keine weiteren 
+    Ansprüche geltend gemacht werden.
+  </p>
+  <p className="mt-3">
+    Entscheidungen über den Verfall von Guthaben erfolgen unter Beachtung der gesetzlichen 
+    Verjährungsfristen. Für als ungültig bewertete oder von Partnern abgelehnte Aktionen 
+    besteht kein Anspruch auf Auszahlung.
+  </p>
+</section>
 
           <section>
-            <h2 className="text-lg sm:text-xl font-semibold">9. Kontakt</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">10. Kontakt</h2>
             <p>
               Bei Fragen erreichst du uns unter:{' '}
               <a
@@ -98,7 +120,6 @@ export default function AGBPage() {
               Felix Maximilian Lohmann, Grindelallee 44, 20146 Hamburg
             </p>
           </section>
-
         </div>
       </main>
     </>

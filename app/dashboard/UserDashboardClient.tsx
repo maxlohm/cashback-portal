@@ -53,9 +53,9 @@ const VOUCHERS: VoucherOption[] = [
   { id: 'drive&ride', label: 'drive&ride', minAmount: 10 },
 
   // zusätzliche Gutscheine
-  { id: 'Apple', label: 'Apple', minAmount: 5 },
+  { id: 'Apple', label: 'Apple Gift Card', minAmount: 10 },
   { id: 'GooglePlay', label: 'Google Play Gift Card', minAmount: 5 },
-  { id: 'Netflix', label: 'Netflix', minAmount: 5 },
+  { id: 'Netflix', label: 'Netflix', minAmount: 25 },
   { id: 'Spotify', label: 'Spotify', minAmount: 5 },
   { id: 'Steam', label: 'Steam', minAmount: 5 },
   { id: 'Lidl', label: 'Lidl', minAmount: 5 },

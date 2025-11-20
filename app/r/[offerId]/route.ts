@@ -91,11 +91,17 @@ export async function GET(req: NextRequest, context: any) {
   }
 
   // 5) Idempotenter Click (bei Duplicate → Update solange nicht redeemed)
+
   const nowIso = new Date().toISOString();
+
+  // 🔥 NEU: pro Insert eine eindeutige SubID erzeugen
+  const subidTokenForInsert = crypto.randomUUID();
+
   const row: Record<string, any> = {
     user_id: user.id,
     offer_id: offerId,
     clicked_at: nowIso,
+    subid_token: subidTokenForInsert, // ← wird an FinanceAds als {subid} gehen
   };
   if (influencerId) row.influencer_id = influencerId;
 
@@ -136,8 +142,8 @@ export async function GET(req: NextRequest, context: any) {
       userId: user.id,
       offerId,
       influencerId,
-      subId: partnerSubId || undefined,   // Admin-SubID (global)
-      clickToken: clickToken || undefined // Fallback-Click-Token
+      subId: partnerSubId || undefined,   // Influencer-/User-SubID
+      clickToken: clickToken || undefined // ← dieser Token wird bei FinanceAds als ?subid=... landen
     }) || '/';
 
   if (dbg) {
@@ -152,6 +158,7 @@ export async function GET(req: NextRequest, context: any) {
       err,
       row: latest ?? null,
       dest,
+      subidTokenForInsert, // zum Debuggen
     });
   }
 

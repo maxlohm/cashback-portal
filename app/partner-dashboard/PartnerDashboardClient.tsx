@@ -16,7 +16,14 @@ type LeadRow = {
   offer_id: string
   offer_title: string
 }
-type RedemptionRow = { id: string; amount: number; status: string; provider: string | null; sku: string | null; created_at: string }
+type RedemptionRow = {
+  id: string
+  amount: number
+  status: string
+  provider: string | null
+  sku: string | null
+  created_at: string
+}
 type SeriesPoint = { d: string; amount: number }
 type Offer = { id: string; title: string }
 
@@ -39,7 +46,6 @@ export default function PartnerDashboardClient() {
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
   const [userId, setUserId] = useState<string | null>(null)
-  const [vatRate, setVatRate] = useState<number>(19)
 
   // UI
   const [loading, setLoading] = useState(true)
@@ -62,7 +68,7 @@ export default function PartnerDashboardClient() {
     return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
   }, [month, customFrom, customTo])
 
-  // initial: user, offers, VAT
+  // initial: user, offers
   useEffect(() => {
     ;(async () => {
       const { data: u } = await supabase.auth.getUser()
@@ -74,13 +80,14 @@ export default function PartnerDashboardClient() {
         .select('id,title,active')
         .eq('active', true)
         .order('created_at', { ascending: false })
-      const list = (off ?? []).map(o => ({ id: o.id as string, title: (o as any).title as string }))
+
+      const list = (off ?? []).map(o => ({
+        id: o.id as string,
+        title: (o as any).title as string,
+      }))
+
       setOffers(list)
       setSelectedOfferId(list[0]?.id ?? null)
-
-      // VAT-Rate aus Profil (fallback 19 %)
-      const { data: prof } = await supabase.from('profiles').select('vat_rate').maybeSingle()
-      if (prof?.vat_rate != null) setVatRate(Number(prof.vat_rate))
     })()
   }, [])
 
@@ -88,37 +95,36 @@ export default function PartnerDashboardClient() {
     setLoading(true)
     setError(null)
     try {
-     // in PartnerDashboardClient.tsx, im refresh():
-const leadParams = {
-  p_status: statusFilter,
-  p_from: fromDate ? fromDate.toISOString().slice(0,10) : null,
-  p_to:   toDate   ? toDate.toISOString().slice(0,10)   : null,
-  p_limit: 500,
-  p_offset: 0,
-}
-const tsParams = { p_from: leadParams.p_from, p_to: leadParams.p_to }
+      const leadParams = {
+        p_status: statusFilter,
+        p_from: fromDate ? fromDate.toISOString().slice(0, 10) : null,
+        p_to: toDate ? toDate.toISOString().slice(0, 10) : null,
+        p_limit: 500,
+        p_offset: 0,
+      }
+      const tsParams = { p_from: leadParams.p_from, p_to: leadParams.p_to }
 
-const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
-  supabase.rpc('get_partner_stats'),
-  supabase.rpc('get_partner_leads', leadParams),
-  supabase.rpc('get_partner_revenue_timeseries', tsParams),
-  supabase.rpc('get_user_balance'),
-  supabase.rpc('get_user_redemptions'),   // <- bleibt gleich
-])
+      const rpc = async <T,>(name: string, params?: any): Promise<T> => {
+        const { data, error } = await supabase.rpc(name, params)
+        if (error) throw new Error(`${name}: ${error.message}`)
+        return data as T
+      }
 
-      if (sStats.error) throw sStats.error
-      if (sLeads.error) throw sLeads.error
-      if (sTs.error) throw sTs.error
-      if (sBal.error) throw sBal.error
-      if (sRed.error) throw sRed.error
+      const [statsData, leadsData, tsData, balData, redData] = await Promise.all([
+        rpc<Stats>('get_partner_stats'),
+        rpc<any[]>('get_partner_leads', leadParams),
+        rpc<any[]>('get_partner_revenue_timeseries', tsParams),
+        rpc<Balance>('get_user_balance'),
+        rpc<RedemptionRow[]>('get_user_redemptions'),
+      ])
 
-      setStats(sStats.data as Stats)
-      setLeads(((sLeads.data ?? []) as any[]).map((r: any) => ({ ...r })))
-      setSeries(((sTs.data ?? []) as any[]).map(r => ({ d: r.d, amount: Number(r.amount || 0) })))
-      setBalance(sBal.data as Balance)
-      setRedemptions((sRed.data ?? []) as RedemptionRow[])
+      setStats(statsData)
+      setLeads((leadsData ?? []).map(r => ({ ...r })))
+      setSeries((tsData ?? []).map(r => ({ d: r.d, amount: Number(r.amount || 0) })))
+      setBalance(balData)
+      setRedemptions(redData ?? [])
     } catch (e: any) {
-      setError(e.message ?? 'Fehler beim Laden')
+      setError(e?.message || 'Fehler beim Laden')
     } finally {
       setLoading(false)
     }
@@ -133,7 +139,9 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
     const open = leads.filter(x => !x.confirmed).length
     const confirmed = leads.filter(x => x.confirmed).length
     const ready = leads.filter(x => x.payout_ready).length
-    const sumReady = leads.filter(x => x.payout_ready).reduce((a, b) => a + Number(b.amount || 0), 0)
+    const sumReady = leads
+      .filter(x => x.payout_ready)
+      .reduce((a, b) => a + Number(b.amount || 0), 0)
     const sumPeriod = leads.reduce((a, b) => a + Number(b.amount || 0), 0)
     return { open, confirmed, ready, sumReady, sumPeriod }
   }, [leads])
@@ -154,15 +162,16 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
       .slice(0, 5)
   }, [leads])
 
-  // VAT-Vorschau
-  const vatPreview = useMemo(() => {
-    const gross = balance?.available_balance ?? 0
-    const net = gross / (1 + vatRate / 100)
-    const vat = gross - net
-    return { gross, net, vat }
-  }, [balance, vatRate])
+  // offene Auszahlungsanfrage?
+  const hasOpenRequest = useMemo(
+    () => redemptions.some(r => ['pending', 'approved', 'processing'].includes(r.status)),
+    [redemptions],
+  )
 
   async function requestPayout() {
+    // TODO: Diese RPC müssen wir an deine neue Logik anpassen.
+    // Aktuell wird create_redemption_request ein Error werfen,
+    // weil p_amount / p_voucher_type Pflicht sind.
     const { error } = await supabase.rpc('create_redemption_request', {})
     if (error) {
       alert(`Auszahlung nicht möglich: ${error.message}`)
@@ -177,11 +186,22 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
       ['Datum', 'Offer', 'Status', 'Betrag'],
       ...leads.map(l => {
         const date = l.confirmed_at || l.clicked_at || ''
-        const status = l.payout_ready ? 'auszahlbar' : l.confirmed ? 'bestätigt' : 'offen'
-        return [date, l.offer_title || '', status, String(Number(l.amount || 0).toFixed(2)).replace('.', ',')]
+        const status = l.payout_ready
+          ? 'auszahlbar'
+          : l.confirmed
+          ? 'bestätigt'
+          : 'offen'
+        return [
+          date,
+          l.offer_title || '',
+          status,
+          String(Number(l.amount || 0).toFixed(2)).replace('.', ','),
+        ]
       }),
     ]
-    const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const csv = rows
+      .map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -192,7 +212,8 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
   }
 
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
   const landingLink = userId ? `${siteUrl}/?ref=${userId}` : ''
   const dealLink = (offerId: string | null) =>
     userId && offerId ? `${siteUrl}/r/${offerId}?ref=${userId}` : ''
@@ -205,19 +226,31 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
   const last12 = useMemo(() => {
     const arr: string[] = []
     const d = new Date()
-    for (let i = 0; i < 12; i++) arr.push(monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)))
+    for (let i = 0; i < 12; i++)
+      arr.push(monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)))
     return arr
   }, [])
 
   return (
     <div className="space-y-6">
       {/* Promo-Links */}
-      <Section title="Meine Promo-Links" open={openLinks} onToggle={() => setOpenLinks(v => !v)}>
+      <Section
+        title="Meine Promo-Links"
+        open={openLinks}
+        onToggle={() => setOpenLinks(v => !v)}
+      >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col md:flex-row gap-2 md:items-center">
             <label className="text-sm w-44">Landing-Link</label>
-            <input className="flex-1 border rounded px-3 py-2 text-sm" readOnly value={landingLink} />
-            <button className="px-3 py-2 border rounded bg-white" onClick={() => copy(landingLink)}>
+            <input
+              className="flex-1 border rounded px-3 py-2 text-sm"
+              readOnly
+              value={landingLink}
+            />
+            <button
+              className="px-3 py-2 border rounded bg-white"
+              onClick={() => copy(landingLink)}
+            >
               kopieren
             </button>
           </div>
@@ -249,7 +282,8 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
           </div>
 
           <p className="text-xs text-gray-500">
-            Deine Sub-ID wird beim Redirect automatisch angehängt (AWIN=clickref, FinanceAds=subid, Belboon=smc1).
+            Deine Sub-ID wird beim Redirect automatisch angehängt (AWIN=clickref,
+            FinanceAds=subid, Belboon=smc1).
           </p>
         </div>
       </Section>
@@ -258,9 +292,18 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Kpi title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
         <Kpi title="Leads bestätigt" value={kpis.confirmed} />
-        <Kpi title="Einnahmen (brutto)" value={fmtEUR(Number(stats?.total_earnings ?? 0))} />
-        <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
-        <Kpi title="Ausgezahlt" value={fmtEUR(Number(balance?.total_paid ?? 0))} />
+        <Kpi
+          title="Einnahmen (Summe Leads im Zeitraum)"
+          value={fmtEUR(kpis.sumPeriod)}
+        />
+        <Kpi
+          title="Auszahlbar (Leads auszahlbar)"
+          value={fmtEUR(kpis.sumReady)}
+        />
+        <Kpi
+          title="Bereits ausgezahlt"
+          value={fmtEUR(Number(balance?.total_paid ?? 0))}
+        />
       </div>
 
       {/* Filter */}
@@ -273,7 +316,13 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
               statusFilter === s ? 'bg-[#003b5b] text-white' : 'bg-white'
             }`}
           >
-            {s === 'all' ? 'Alle' : s === 'open' ? 'Offen' : s === 'confirmed' ? 'Bestätigt' : 'Auszahlbar'}
+            {s === 'all'
+              ? 'Alle'
+              : s === 'open'
+              ? 'Offen'
+              : s === 'confirmed'
+              ? 'Bestätigt'
+              : 'Auszahlbar'}
           </button>
         ))}
         <select
@@ -304,12 +353,18 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
               value={customTo}
               onChange={e => setCustomTo(e.target.value)}
             />
-            <button className="px-3 py-2 border rounded text-sm bg-white" onClick={refresh}>
+            <button
+              className="px-3 py-2 border rounded text-sm bg-white"
+              onClick={refresh}
+            >
               Anwenden
             </button>
           </div>
         )}
-        <button className="ml-auto px-3 py-2 border rounded text-sm bg-white" onClick={csvExport}>
+        <button
+          className="ml-auto px-3 py-2 border rounded text-sm bg-white"
+          onClick={csvExport}
+        >
           CSV exportieren
         </button>
       </div>
@@ -328,35 +383,56 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
       </div>
 
       {/* Auszahlung */}
-      <Section title="Auszahlung beantragen" open={openPayout} onToggle={() => setOpenPayout(v => !v)}>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Kpi title="Auszahlbares Guthaben (brutto)" value={fmtEUR(vatPreview.gross)} />
-          <Kpi title={`MwSt. (${vatRate} %)`} value={fmtEUR(vatPreview.vat)} />
-          <Kpi title="Netto (Vorschau)" value={fmtEUR(vatPreview.net)} />
-          <div className="flex items-center justify-end">
+      <Section
+        title="Auszahlung beantragen"
+        open={openPayout}
+        onToggle={() => setOpenPayout(v => !v)}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Kpi
+            title="Auszahlbares Guthaben"
+            value={fmtEUR(Number(balance?.available_balance ?? 0))}
+          />
+          <div className="flex items-center md:col-span-2 justify-end gap-3">
+            {hasOpenRequest && (
+              <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                Es gibt bereits eine offene Auszahlungsanfrage.
+              </span>
+            )}
             <button
               className="px-4 py-2 rounded bg-[#003b5b] text-white disabled:opacity-60"
               onClick={requestPayout}
-              disabled={(balance?.available_balance ?? 0) <= 0}
+              disabled={
+                (balance?.available_balance ?? 0) <= 0 || hasOpenRequest
+              }
             >
               Auszahlung anfordern
             </button>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Hinweis: Mindestauszahlung & Sperrfristen gelten. Bereits laufende Anträge werden zuerst abgewickelt.
+          Hinweis: Du erhältst von uns die Infos für die Rechnung, die du an uns
+          stellst. Als Kleinunternehmer fällt keine gesonderte Umsatzsteuer an.
         </p>
       </Section>
 
       {/* Top-Offers */}
-      <Section title="Top-Offers (Umsatz im Zeitraum)" open onToggle={() => {}}>
+      <Section
+        title="Top-Offers (Umsatz im Zeitraum)"
+        open
+        onToggle={() => {}}
+      >
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {topOffers.length === 0 && <div className="text-sm text-gray-500">Noch keine Daten.</div>}
+          {topOffers.length === 0 && (
+            <div className="text-sm text-gray-500">Noch keine Daten.</div>
+          )}
           {topOffers.map(t => (
             <div key={t.id} className="bg-white border rounded p-3">
               <div className="text-sm font-medium">{t.title}</div>
               <div className="text-xs text-gray-500">{t.count} Lead(s)</div>
-              <div className="text-lg font-semibold mt-1">{fmtEUR(t.sum)}</div>
+              <div className="text-lg font-semibold mt-1">
+                {fmtEUR(t.sum)}
+              </div>
             </div>
           ))}
         </div>
@@ -382,18 +458,29 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
             <tbody>
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center p-6 text-gray-500">
+                  <td
+                    colSpan={4}
+                    className="text-center p-6 text-gray-500"
+                  >
                     Keine Leads gefunden.
                   </td>
                 </tr>
               )}
               {leads.map(l => {
                 const date = l.confirmed_at || l.clicked_at
-                const status = l.payout_ready ? 'auszahlbar' : l.confirmed ? 'bestätigt' : 'offen'
+                const status = l.payout_ready
+                  ? 'auszahlbar'
+                  : l.confirmed
+                  ? 'bestätigt'
+                  : 'offen'
                 return (
                   <tr key={l.id} className="border-t">
-                    <Td>{date ? new Date(date).toLocaleString() : '-'}</Td>
-                    <Td className="font-medium">{l.offer_title || '—'}</Td>
+                    <Td>
+                      {date ? new Date(date).toLocaleString() : '-'}
+                    </Td>
+                    <Td className="font-medium">
+                      {l.offer_title || '—'}
+                    </Td>
                     <Td>
                       <span
                         className={`px-2 py-1 rounded text-xs ${
@@ -407,7 +494,9 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
                         {status}
                       </span>
                     </Td>
-                    <Td className="text-right">{fmtEUR(Number(l.amount || 0))}</Td>
+                    <Td className="text-right">
+                      {fmtEUR(Number(l.amount || 0))}
+                    </Td>
                   </tr>
                 )
               })}
@@ -417,7 +506,12 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
       </Section>
 
       {/* Auszahlungen */}
-      <Section title="Auszahlungen" subtitle="Historie" open={openPayouts} onToggle={() => setOpenPayouts(v => !v)}>
+      <Section
+        title="Auszahlungen"
+        subtitle="Historie"
+        open={openPayouts}
+        onToggle={() => setOpenPayouts(v => !v)}
+      >
         <div className="overflow-auto bg-white border rounded">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
@@ -432,7 +526,10 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
             <tbody>
               {redemptions.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center p-6 text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="text-center p-6 text-gray-500"
+                  >
                     Noch keine Auszahlungen.
                   </td>
                 </tr>
@@ -443,7 +540,9 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
                   <Td>{r.status}</Td>
                   <Td>{r.provider ?? '-'}</Td>
                   <Td>{r.sku ?? '-'}</Td>
-                  <Td className="text-right">{fmtEUR(Number(r.amount))}</Td>
+                  <Td className="text-right">
+                    {fmtEUR(Number(r.amount))}
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -451,7 +550,9 @@ const [sStats, sLeads, sTs, sBal, sRed] = await Promise.all([
         </div>
       </Section>
 
-      {loading && <div className="text-sm text-gray-500">Lade Daten…</div>}
+      {loading && (
+        <div className="text-sm text-gray-500">Lade Daten…</div>
+      )}
       {error && <div className="text-sm text-red-600">{error}</div>}
     </div>
   )
@@ -482,10 +583,15 @@ function Section({
 }) {
   return (
     <div className="bg-[#fafafa] border rounded">
-      <button onClick={onToggle} className="w-full text-left px-4 py-3 flex items-center justify-between">
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-4 py-3 flex items-center justify-between"
+      >
         <div>
           <div className="font-semibold">{title}</div>
-          {subtitle && <div className="text-xs text-gray-500">{subtitle}</div>}
+          {subtitle && (
+            <div className="text-xs text-gray-500">{subtitle}</div>
+          )}
         </div>
         <span className="text-xl">{open ? '▾' : '▸'}</span>
       </button>
@@ -495,7 +601,11 @@ function Section({
 }
 
 function Th({ children, className = '' }: any) {
-  return <th className={`text-left px-3 py-2 font-semibold ${className}`}>{children}</th>
+  return (
+    <th className={`text-left px-3 py-2 font-semibold ${className}`}>
+      {children}
+    </th>
+  )
 }
 function Td({ children, className = '' }: any) {
   return <td className={`px-3 py-2 ${className}`}>{children}</td>
