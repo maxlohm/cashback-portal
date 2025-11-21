@@ -83,6 +83,7 @@ export default function UserDashboardClient() {
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>(
     VOUCHERS[0]?.id ?? 'Amazon',
   );
+  const [voucherOpen, setVoucherOpen] = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -215,21 +216,21 @@ export default function UserDashboardClient() {
       {/* Top-Karten */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <BalanceCard
-          label="Vorgemerkt"
-          hint="Bestätigte Transaktionen, noch nicht auszahlbar"
-          value={balance?.pending_balance ?? 0}
-          color="amber"
-        />
-        <BalanceCard
           label="Auszahlbar"
-          hint="Guthaben, das du aktuell anfordern kannst"
+          hint="Guthaben, das du aktuell anfordern kannst."
           value={balance?.available_balance ?? 0}
           color="emerald"
           emphasize
         />
         <BalanceCard
+          label="In Bearbeitung"
+          hint="Auszahlungsanfragen, die wir gerade prüfen oder auszahlen."
+          value={balance?.pending_balance ?? 0}
+          color="amber"
+        />
+        <BalanceCard
           label="Bereits ausgezahlt"
-          hint="Summe aller bestätigten Auszahlungen"
+          hint="Summe deiner bisher ausgezahlten Gutscheine."
           value={balance?.total_paid ?? 0}
           color="sky"
         />
@@ -238,53 +239,73 @@ export default function UserDashboardClient() {
       {/* Auszahlungskarte */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Gutschein anfordern
-            </h2>
-            <p className="text-sm text-slate-600">
-              Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und senden dir den Code,
-              sobald die Auszahlung bestätigt wurde.
-            </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Gutschein anfordern
+              </h2>
+              <p className="text-sm text-slate-600">
+                Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und senden dir den
+                Code, sobald die Auszahlung bestätigt wurde.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVoucherOpen((v) => !v)}
+              className="mt-1 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+            >
+              {voucherOpen ? 'Gutscheine ausblenden' : 'Gutscheine anzeigen'}
+            </button>
           </div>
 
-          {/* Gutschein-Auswahl im Grid */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {VOUCHERS.map((v) => {
-              const isActive = v.id === selectedVoucherId;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setSelectedVoucherId(v.id)}
-                  className={[
-                    'flex flex-col items-start rounded-xl border px-3 py-3 text-left text-sm transition',
-                    'bg-slate-50 hover:bg-slate-100',
-                    isActive
-                      ? 'border-slate-900 shadow-sm'
-                      : 'border-slate-200',
-                  ].join(' ')}
-                >
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                      ab {fmtMoney.format(v.minAmount)}
-                    </span>
-                    <span
-                      className={[
-                        'h-4 w-4 rounded-full border',
-                        isActive
-                          ? 'border-slate-900 bg-slate-900'
-                          : 'border-slate-300 bg-white',
-                      ].join(' ')}
-                    />
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-slate-900">
-                    {v.label}
-                  </div>
-                </button>
-              );
-            })}
+          {/* Aktuell ausgewählter Gutschein (Kurzinfo) */}
+          <div className="text-xs text-slate-600">
+            Ausgewählter Gutschein:{' '}
+            <span className="font-medium text-slate-900">
+              {selectedVoucher.label}
+            </span>{' '}
+            (ab {fmtMoney.format(selectedVoucher.minAmount)})
           </div>
+
+          {/* Gutschein-Auswahl im Grid – ein-/ausklappbar */}
+          {voucherOpen && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {VOUCHERS.map((v) => {
+                const isActive = v.id === selectedVoucherId;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSelectedVoucherId(v.id)}
+                    className={[
+                      'flex flex-col items-start rounded-xl border px-3 py-3 text-left text-sm transition',
+                      'bg-slate-50 hover:bg-slate-100',
+                      isActive
+                        ? 'border-slate-900 shadow-sm'
+                        : 'border-slate-200',
+                    ].join(' ')}
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                        ab {fmtMoney.format(v.minAmount)}
+                      </span>
+                      <span
+                        className={[
+                          'h-4 w-4 rounded-full border',
+                          isActive
+                            ? 'border-slate-900 bg-slate-900'
+                            : 'border-slate-300 bg-white',
+                        ].join(' ')}
+                      />
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-slate-900">
+                      {v.label}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Button + Hinweise */}
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -407,14 +428,14 @@ export default function UserDashboardClient() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">
-              Verlauf deiner Teilnahmen
+              Verlauf deiner Auszahlungen
             </h2>
             <span className="text-xs text-slate-500">
-              Letzte {redemptions.length} Teilnahmen
+              Letzte {redemptions.length} Auszahlungen
             </span>
           </div>
           {redemptions.length === 0 ? (
-            <Empty label="Noch keine Teilnahmen." />
+            <Empty label="Noch keine Auszahlungen." />
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-xs">
