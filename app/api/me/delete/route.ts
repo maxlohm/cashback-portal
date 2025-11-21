@@ -1,16 +1,37 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+// app/api/me/delete/route.ts
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function POST() {
-  const supabase = createServerComponentClient({ cookies })
-  const { data: { user }, error: aerr } = await supabase.auth.getUser()
-  if (aerr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-  const { error } = await supabase.rpc('gdpr_soft_delete_user', { p_user: user.id, p_reason: 'user_request' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  // Log out
-  await supabase.auth.signOut()
-  return NextResponse.json({ ok: true })
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  // DSGVO-Softdelete in der DB
+  const { error: rpcError } = await supabase.rpc('gdpr_soft_delete_user', {
+    p_user: user.id,
+    p_reason: 'user_self_delete',
+  });
+
+  if (rpcError) {
+    console.error(rpcError);
+    return NextResponse.json(
+      { error: 'Löschung fehlgeschlagen' },
+      { status: 500 },
+    );
+  }
+
+  // Session beenden
+  await supabase.auth.signOut();
+
+  return NextResponse.json({ success: true });
 }

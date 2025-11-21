@@ -13,6 +13,7 @@ export default function ProfilBearbeitenPage() {
 
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -71,6 +72,44 @@ export default function ProfilBearbeitenPage() {
     setTimeout(() => setSuccess(''), 2000)
   }
 
+  const handleDeleteAccount = async () => {
+    setError('')
+    setSuccess('')
+
+    const confirmed = window.confirm(
+      'Möchtest du dein Bonus-Nest Konto wirklich löschen? ' +
+        'Dein Guthaben verfällt und dieser Schritt kann nicht rückgängig gemacht werden.'
+    )
+    if (!confirmed) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/me/delete', {
+        method: 'POST',
+      })
+
+      if (!res.ok) {
+        let message = 'Fehler bei der Kontolöschung.'
+        try {
+          const data = await res.json()
+          if (data?.error) message = data.error
+        } catch {
+          // ignore JSON-Fehler
+        }
+        throw new Error(message)
+      }
+
+      // Optional: kleine Info, dann Redirect
+      alert('Dein Konto wurde gelöscht. Du wirst zur Startseite weitergeleitet.')
+      window.location.href = '/'
+    } catch (e: any) {
+      console.error(e)
+      setError(e?.message ?? 'Fehler bei der Kontolöschung.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f0fbff] text-[#003b5b] px-4 sm:px-6 lg:px-8 py-10">
       <div className="max-w-2xl mx-auto bg-white border border-blue-200 p-6 sm:p-8 rounded-2xl shadow space-y-6">
@@ -108,7 +147,9 @@ export default function ProfilBearbeitenPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Altes Passwort (Pflicht zur Bestätigung)</label>
+          <label className="block text-sm font-medium">
+            Altes Passwort (Pflicht zur Bestätigung)
+          </label>
           <input
             type="password"
             value={oldPassword}
@@ -138,6 +179,23 @@ export default function ProfilBearbeitenPage() {
         >
           Änderungen speichern
         </button>
+
+        {/* Danger Zone: Konto löschen */}
+        <div className="mt-6 border-t border-red-100 pt-4">
+          <h2 className="text-sm font-semibold text-red-700">Konto löschen</h2>
+          <p className="mt-1 text-xs text-red-600">
+            Wenn du dein Konto löschst, werden deine persönlichen Daten anonymisiert und du
+            kannst Bonus-Nest nicht mehr nutzen. Offenes Guthaben verfällt. Dieser Schritt
+            kann nicht rückgängig gemacht werden.
+          </p>
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            className="mt-3 w-full rounded-xl border border-red-300 bg-red-50 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {deleting ? 'Lösche Konto …' : 'Konto endgültig löschen'}
+          </button>
+        </div>
       </div>
     </div>
   )
