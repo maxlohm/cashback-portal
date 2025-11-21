@@ -18,12 +18,6 @@ type Stats = {
   total_earnings: number | null
 }
 
-type Balance = {
-  pending_balance: number
-  available_balance: number
-  total_paid: number
-}
-
 type LeadRow = {
   id: string
   amount: number | null
@@ -62,7 +56,6 @@ export default function PartnerDashboardClient() {
   const [customTo, setCustomTo] = useState<string>('')
 
   const [stats, setStats] = useState<Stats | null>(null)
-  const [balance, setBalance] = useState<Balance | null>(null)
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([])
   const [series, setSeries] = useState<SeriesPoint[]>([])
@@ -145,17 +138,12 @@ export default function PartnerDashboardClient() {
         return data as T
       }
 
-      const [statsData, leadsData, tsData, balRaw, redData] = await Promise.all([
+      const [statsData, leadsData, tsData, redData] = await Promise.all([
         rpc<Stats>('get_partner_stats'),
         rpc<any[]>('get_partner_leads', leadParams),
         rpc<any[]>('get_partner_revenue_timeseries', tsParams),
-        rpc<any>('get_user_balance'),
         rpc<RedemptionRow[]>('get_user_redemptions'),
       ])
-
-      const bal: Balance | null = Array.isArray(balRaw)
-        ? ((balRaw[0] as Balance) ?? null)
-        : (balRaw as Balance)
 
       setStats(statsData)
       setLeads((leadsData ?? []).map(r => ({ ...r })))
@@ -165,7 +153,6 @@ export default function PartnerDashboardClient() {
           amount: Number(r.amount || 0),
         })),
       )
-      setBalance(bal)
       setRedemptions(redData ?? [])
     } catch (e: any) {
       console.error(e)
@@ -331,8 +318,8 @@ export default function PartnerDashboardClient() {
           value={fmtEUR(kpis.sumReady)}
         />
         <Kpi
-          title="Bereits ausgezahlt"
-          value={fmtEUR(balance?.total_paid ?? 0)}
+          title="Einnahmen gesamt"
+          value={fmtEUR(stats?.total_earnings ?? 0)}
         />
       </div>
 
@@ -419,7 +406,7 @@ export default function PartnerDashboardClient() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Kpi
             title="Auszahlbares Guthaben"
-            value={fmtEUR(balance?.available_balance ?? 0)}
+            value={fmtEUR(kpis.sumReady)}
           />
           <div className="flex items-center md:col-span-2 justify-end gap-3">
             {hasOpenRequest && (
@@ -430,7 +417,7 @@ export default function PartnerDashboardClient() {
             <button
               className="px-4 py-2 rounded bg-[#003b5b] text-white disabled:opacity-60"
               onClick={requestPayout}
-              disabled={(balance?.available_balance ?? 0) <= 0}
+              disabled={kpis.sumReady <= 0}
             >
               Auszahlung anfordern
             </button>
