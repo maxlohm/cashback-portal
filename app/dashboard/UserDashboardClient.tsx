@@ -13,7 +13,7 @@ type LeadRow = {
   id: string;
   offer_title: string;
   offer_image?: string;
-  amount: number | null;
+  amount: number | null; // Cashback-Betrag (offers.reward_amount)
   confirmed: boolean;
   payout_ready: boolean;
   confirmed_at: string | null;
@@ -102,20 +102,26 @@ export default function UserDashboardClient() {
       }
       setBalance(bal);
 
-      // Leads (mit Offer)
-      const { data: leadRows } = await supabase
+      // Leads (mit Offer) – WICHTIG:
+      // leads.amount = Netzwerkbetrag (FinanceAds)
+      // offers.reward_amount = Cashback für den Kunden
+      // → im User-Dashboard zeigen wir reward_amount an
+      const { data: leadRows, error: leadErr } = await supabase
         .from('leads')
         .select(
-          'id, amount, confirmed, payout_ready, confirmed_at, created_at, clicks(offers(title,image_url))',
+          'id, confirmed, payout_ready, confirmed_at, created_at, clicks(offers(title,image_url,reward_amount))',
         )
         .order('created_at', { ascending: false })
         .limit(20);
+
+      if (leadErr) throw leadErr;
 
       const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => ({
         id: row.id,
         offer_title: row.clicks?.offers?.title ?? 'Deal',
         offer_image: row.clicks?.offers?.image_url ?? undefined,
-        amount: row.amount,
+        // Cashback / Gutscheinwert aus offers.reward_amount
+        amount: row.clicks?.offers?.reward_amount ?? null,
         confirmed: row.confirmed,
         payout_ready: row.payout_ready,
         confirmed_at: row.confirmed_at,
@@ -408,7 +414,7 @@ export default function UserDashboardClient() {
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-slate-700">
-                        {l.amount ? fmtMoney.format(l.amount) : '–'}
+                        {l.amount != null ? fmtMoney.format(l.amount) : '–'}
                       </td>
                       <td className="px-2 py-1.5">
                         <LeadStatusBadge

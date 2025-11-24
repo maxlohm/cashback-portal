@@ -317,10 +317,11 @@ export default function PartnerDashboardClient() {
           title="Auszahlbar"
           value={fmtEUR(kpis.sumReady)}
         />
-        <Kpi
-          title="Einnahmen gesamt"
-          value={fmtEUR(stats?.total_earnings ?? 0)}
-        />
+     <Kpi
+  title="Einnahmen gesamt"
+  value={fmtEUR(stats?.total_earnings ?? 0)}
+/>
+
       </div>
 
       {/* Filter */}
