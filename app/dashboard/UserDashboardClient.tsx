@@ -17,7 +17,7 @@ type LeadRow = {
   confirmed: boolean;
   payout_ready: boolean;
   confirmed_at: string | null;
-  created_at: string;
+  created_at: string; // Anzeige-Datum (confirmed_at oder clicked_at)
 };
 
 type RedemptionRow = {
@@ -51,8 +51,6 @@ const VOUCHERS: VoucherOption[] = [
   { id: 'Rewe', label: 'Rewe', minAmount: 5 },
   { id: 'airbnb', label: 'airbnb', minAmount: 50 },
   { id: 'drive&ride', label: 'drive&ride', minAmount: 10 },
-
-  // zusätzliche Gutscheine
   { id: 'Apple', label: 'Apple Gift Card', minAmount: 10 },
   { id: 'GooglePlay', label: 'Google Play Gift Card', minAmount: 5 },
   { id: 'Netflix', label: 'Netflix', minAmount: 25 },
@@ -90,8 +88,10 @@ export default function UserDashboardClient() {
     setError(null);
 
     try {
-      // Balance (RPC gibt ein Array mit genau einem Datensatz zurück)
-      const { data: balRaw, error: balErr } = await supabase.rpc('get_user_balance');
+      // Balance (RPC basiert auf offers.reward_amount)
+      const { data: balRaw, error: balErr } = await supabase.rpc(
+        'get_user_balance',
+      );
       if (balErr) throw balErr;
 
       let bal: Balance | null = null;
@@ -102,31 +102,42 @@ export default function UserDashboardClient() {
       }
       setBalance(bal);
 
-      // Leads (mit Offer) – WICHTIG:
-      // leads.amount = Netzwerkbetrag (FinanceAds)
-      // offers.reward_amount = Cashback für den Kunden
-      // → im User-Dashboard zeigen wir reward_amount an
+      // Leads für Endkunden:
+      // - Betrag = offers.reward_amount
+      // - Datum = confirmed_at oder clicks.clicked_at
       const { data: leadRows, error: leadErr } = await supabase
         .from('leads')
         .select(
-          'id, confirmed, payout_ready, confirmed_at, created_at, clicks(offers(title,image_url,reward_amount))',
+          'id, confirmed, payout_ready, confirmed_at, clicks(clicked_at, offers(title,image_url,reward_amount))',
         )
-        .order('created_at', { ascending: false })
+        .order('confirmed_at', { ascending: false })
         .limit(20);
 
       if (leadErr) throw leadErr;
 
-      const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => ({
-        id: row.id,
-        offer_title: row.clicks?.offers?.title ?? 'Deal',
-        offer_image: row.clicks?.offers?.image_url ?? undefined,
-        // Cashback / Gutscheinwert aus offers.reward_amount
-        amount: row.clicks?.offers?.reward_amount ?? null,
-        confirmed: row.confirmed,
-        payout_ready: row.payout_ready,
-        confirmed_at: row.confirmed_at,
-        created_at: row.created_at,
-      }));
+      const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => {
+        const clickedAt = row.clicks?.clicked_at as
+          | string
+          | null
+          | undefined;
+        const confirmedAt = row.confirmed_at as
+          | string
+          | null
+          | undefined;
+        const effectiveDate =
+          confirmedAt ?? clickedAt ?? new Date().toISOString();
+
+        return {
+          id: row.id,
+          offer_title: row.clicks?.offers?.title ?? 'Deal',
+          offer_image: row.clicks?.offers?.image_url ?? undefined,
+          amount: row.clicks?.offers?.reward_amount ?? null,
+          confirmed: row.confirmed,
+          payout_ready: row.payout_ready,
+          confirmed_at: confirmedAt ?? null,
+          created_at: effectiveDate,
+        };
+      });
       setLeads(leadsMapped);
 
       // Redemptions (eigene) über RPC
@@ -215,7 +226,8 @@ export default function UserDashboardClient() {
           Dein Bonus-Nest Dashboard
         </h1>
         <p className="text-sm text-slate-600">
-          Behalte dein Guthaben, deine Transaktionen und deine Auszahlungen im Blick.
+          Behalte dein Guthaben, deine Transaktionen und deine Auszahlungen
+          im Blick.
         </p>
       </header>
 
@@ -251,8 +263,8 @@ export default function UserDashboardClient() {
                 Gutschein anfordern
               </h2>
               <p className="text-sm text-slate-600">
-                Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und senden dir den
-                Code, sobald die Auszahlung bestätigt wurde.
+                Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und
+                senden dir den Code, sobald die Auszahlung bestätigt wurde.
               </p>
             </div>
             <button
@@ -260,7 +272,9 @@ export default function UserDashboardClient() {
               onClick={() => setVoucherOpen((v) => !v)}
               className="mt-1 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
             >
-              {voucherOpen ? 'Gutscheine ausblenden' : 'Gutscheine anzeigen'}
+              {voucherOpen
+                ? 'Gutscheine ausblenden'
+                : 'Gutscheine anzeigen'}
             </button>
           </div>
 
@@ -322,7 +336,9 @@ export default function UserDashboardClient() {
             >
               {busy
                 ? 'Sende …'
-                : `Gutschein anfordern (ab ${fmtMoney.format(effectiveMin)})`}
+                : `Gutschein anfordern (ab ${fmtMoney.format(
+                    effectiveMin,
+                  )})`}
             </button>
 
             <div className="text-xs text-slate-500">
@@ -339,7 +355,8 @@ export default function UserDashboardClient() {
             {!hasOpenRequest &&
               (balance?.available_balance ?? 0) < effectiveMin && (
                 <span className="rounded-full bg-slate-50 px-2 py-0.5">
-                  Noch nicht genug auszahlbares Guthaben für den ausgewählten Gutschein.
+                  Noch nicht genug auszahlbares Guthaben für den ausgewählten
+                  Gutschein.
                 </span>
               )}
           </div>
@@ -414,7 +431,9 @@ export default function UserDashboardClient() {
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-slate-700">
-                        {l.amount != null ? fmtMoney.format(l.amount) : '–'}
+                        {l.amount != null
+                          ? fmtMoney.format(l.amount)
+                          : '–'}
                       </td>
                       <td className="px-2 py-1.5">
                         <LeadStatusBadge
