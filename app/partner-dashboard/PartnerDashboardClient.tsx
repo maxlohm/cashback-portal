@@ -27,6 +27,7 @@ type LeadRow = {
   clicked_at: string | null
   offer_id: string
   offer_title: string
+  influencer_paid: boolean | null
 }
 
 type RedemptionRow = {
@@ -170,14 +171,23 @@ export default function PartnerDashboardClient() {
   const kpis = useMemo(() => {
     const open = leads.filter(x => !x.confirmed).length
     const confirmed = leads.filter(x => x.confirmed).length
-    const ready = leads.filter(x => x.payout_ready).length
-    const sumReady = leads
-      .filter(x => x.payout_ready)
-      .reduce((a, b) => a + Number(b.amount || 0), 0)
+
+    const readyLeads = leads.filter(
+      x => x.payout_ready && !x.influencer_paid
+    )
+
+    const ready = readyLeads.length
+
+    const sumReady = readyLeads.reduce(
+      (a, b) => a + Number(b.amount || 0),
+      0
+    )
+
     const sumPeriod = leads.reduce(
       (a, b) => a + Number(b.amount || 0),
-      0,
+      0
     )
+
     return { open, confirmed, ready, sumReady, sumPeriod }
   }, [leads])
 
@@ -317,11 +327,10 @@ export default function PartnerDashboardClient() {
           title="Auszahlbar"
           value={fmtEUR(kpis.sumReady)}
         />
-     <Kpi
-  title="Einnahmen gesamt"
-  value={fmtEUR(stats?.total_earnings ?? 0)}
-/>
-
+        <Kpi
+          title="Einnahmen gesamt"
+          value={fmtEUR(stats?.total_earnings ?? 0)}
+        />
       </div>
 
       {/* Filter */}
@@ -486,7 +495,9 @@ export default function PartnerDashboardClient() {
               )}
               {leads.map(l => {
                 const date = l.confirmed_at || l.clicked_at
-                const status = l.payout_ready
+                const status = l.influencer_paid
+                  ? 'abgerechnet'
+                  : l.payout_ready
                   ? 'auszahlbar'
                   : l.confirmed
                   ? 'bestätigt'
@@ -506,6 +517,8 @@ export default function PartnerDashboardClient() {
                             ? 'bg-green-100 text-green-700'
                             : status === 'bestätigt'
                             ? 'bg-blue-100 text-blue-700'
+                            : status === 'abgerechnet'
+                            ? 'bg-purple-100 text-purple-700'
                             : 'bg-gray-100 text-gray-700'
                         }`}
                       >
