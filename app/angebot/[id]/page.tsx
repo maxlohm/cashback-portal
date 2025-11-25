@@ -1,9 +1,11 @@
+// app/angebot/[id]/page.tsx
 // @ts-nocheck
 import { cookies } from 'next/headers'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
-import ReactMarkdown from 'react-markdown'   // <— Markdown-Renderer
+import ReactMarkdown from 'react-markdown'
+import OfferReviewsClient from './OfferReviewsClient' // <— NEU: Client-Komponente für Bewertungen
 
 export const dynamic = 'force-dynamic'
 
@@ -33,9 +35,15 @@ export default async function OfferPage(props: any) {
     )
   }
 
-  const img =
-    offer.image || offer.image_url || '/placeholder.png'
+  // Rating-Aggregation über RPC
+  const { data: ratingRow } = await supabase
+    .rpc('get_offer_rating', { p_offer_id: id })
+    .maybeSingle()
 
+  const avgRating = Number(ratingRow?.avg_rating ?? 0)
+  const reviewCount = Number(ratingRow?.review_count ?? 0)
+
+  const img = offer.image || offer.image_url || '/placeholder.png'
   const terms = offer.terms
 
   return (
@@ -53,11 +61,13 @@ export default async function OfferPage(props: any) {
         </div>
       </div>
 
-      {/* Titel + Beschreibung */}
+      {/* Titel + Beschreibung + Rating */}
       <div className="mt-8 space-y-3">
         <h1 className="text-3xl font-semibold text-[#003b5b]">
           {offer.title}
         </h1>
+
+        <RatingSummary avg={avgRating} count={reviewCount} />
 
         {offer.description && (
           <p className="text-base text-gray-700 leading-relaxed">
@@ -157,6 +167,16 @@ export default async function OfferPage(props: any) {
           ))}
         </div>
       </section>
+
+      {/* Bewertungen */}
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold text-[#003b5b]">
+          Bewertungen
+        </h2>
+        <div className="mt-4">
+          <OfferReviewsClient offerId={id} />
+        </div>
+      </section>
     </div>
   )
 }
@@ -166,4 +186,31 @@ function fmt(n: number) {
     style: 'currency',
     currency: 'EUR',
   }).format(n || 0)
+}
+
+// Kleine Anzeige-Komponente für Durchschnitt + Anzahl
+function RatingSummary({ avg, count }: { avg: number; count: number }) {
+  const rounded = Math.round(avg * 2) / 2 // z.B. 3.5
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-gray-700">
+      <div className="flex text-base">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span key={i}>{rounded >= i ? '★' : '☆'}</span>
+        ))}
+      </div>
+      {count > 0 ? (
+        <>
+          <span className="font-medium">
+            {avg.toFixed(1)} / 5
+          </span>
+          <span className="text-gray-500">
+            ({count} Bewertungen)
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-500">Noch keine Bewertungen</span>
+      )}
+    </div>
+  )
 }
