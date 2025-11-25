@@ -1,23 +1,33 @@
-'use client';
+// app/admin/influencer-payout/InfluencerPayoutClient.tsx
+'use client'
 
-import { useMemo, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useMemo, useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-type Partner = { id: string; name: string | null; email: string | null };
+type Partner = {
+  id: string
+  name: string | null
+  email: string | null
+}
 
-export default function InfluencerPayoutClient({ partners }: { partners: Partner[] }) {
-  const supabase = useMemo(() => createClientComponentClient(), []);
-  const [partnerId, setPartnerId] = useState<string>('all');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+type Props = {
+  partners: Partner[]
+}
+
+export default function InfluencerPayoutClient({ partners }: Props) {
+  const supabase = useMemo(() => createClientComponentClient(), [])
+  const [partnerId, setPartnerId] = useState<string>('all')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleRun = async () => {
-    setBusy(true);
-    setResult(null);
-    setError(null);
+    setBusy(true)
+    setResult(null)
+    setError(null)
+
     try {
       const { data, error } = await supabase.rpc(
         'admin_mark_influencer_paid',
@@ -26,59 +36,70 @@ export default function InfluencerPayoutClient({ partners }: { partners: Partner
           p_from: from || null,
           p_to: to || null,
         },
-      );
-      if (error) throw error;
+      )
 
-      const row = Array.isArray(data) ? data[0] : data;
-      const updated = row?.updated_count ?? 0;
-      const total = Number(row?.total_commission ?? 0);
+      if (error) throw error
+
+      const row = Array.isArray(data) ? data[0] : data
+      const updated = row?.updated_count ?? 0
+      const total = Number(row?.total_commission ?? 0)
 
       setResult(
         `Es wurden ${updated} Leads auf „abgerechnet“ gesetzt (Summe Provision: ${total.toFixed(
           2,
         )} €).`,
-      );
+      )
     } catch (e: any) {
-      console.error(e);
-      setError(e?.message ?? 'Fehler bei der Abrechnung.');
+      console.error(e)
+      setError(e?.message ?? 'Fehler bei der Abrechnung.')
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
+
+  const labelForPartner = (p: Partner) =>
+    (p.name && p.name.trim()) ||
+    (p.email && p.email.trim()) ||
+    p.id
 
   return (
-    <div className="max-w-xl space-y-4">
-      <h1 className="text-xl font-semibold">
-        Influencer-Abrechnung (Bulk)
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-slate-900">
+        Influencer-Abrechnung
       </h1>
-      <p className="text-sm text-gray-600">
-        Wähle optional einen Influencer und einen Zeitraum. Alle bestätigten,
-        auszahlbaren Leads ohne <code className="mx-1 rounded bg-gray-100 px-1">influencer_paid</code>{' '}
+      <p className="text-sm text-slate-600">
+        Wähle optional einen Influencer und einen Zeitraum. Alle
+        bestätigten, auszahlbaren Leads ohne{' '}
+        <code className="mx-1 rounded bg-slate-100 px-1">
+          influencer_paid
+        </code>{' '}
         werden auf „abgerechnet“ gesetzt.
       </p>
 
-      <div className="space-y-3 bg-white border rounded p-4">
+      <div className="space-y-3 bg-white border border-slate-200 rounded p-4 shadow-sm">
+        {/* Influencer-Auswahl */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium text-gray-700">
+          <label className="text-xs font-medium text-slate-700">
             Influencer
           </label>
-        <select
-  className="border rounded px-2 py-1 text-sm bg-white"
-  value={partnerId}
-  onChange={e => setPartnerId(e.target.value)}
->
-  <option value="all">Alle Influencer</option>
-  {partners.map(p => (
-    <option key={p.id} value={p.id}>
-      {p.name || p.email || p.id}
-    </option>
-  ))}
-</select>
+          <select
+            className="border rounded px-2 py-1 text-sm bg-white"
+            value={partnerId}
+            onChange={e => setPartnerId(e.target.value)}
+          >
+            <option value="all">Alle Influencer</option>
+            {partners.map(p => (
+              <option key={p.id} value={p.id}>
+                {labelForPartner(p)}
+              </option>
+            ))}
+          </select>
         </div>
 
+        {/* Zeitraum */}
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-gray-700">
+            <label className="text-xs font-medium text-slate-700">
               Von (inkl.)
             </label>
             <input
@@ -89,7 +110,7 @@ export default function InfluencerPayoutClient({ partners }: { partners: Partner
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-xs font-medium text-gray-700">
+            <label className="text-xs font-medium text-slate-700">
               Bis (inkl.)
             </label>
             <input
@@ -101,6 +122,7 @@ export default function InfluencerPayoutClient({ partners }: { partners: Partner
           </div>
         </div>
 
+        {/* Button */}
         <button
           onClick={handleRun}
           disabled={busy}
@@ -115,11 +137,12 @@ export default function InfluencerPayoutClient({ partners }: { partners: Partner
           {result}
         </div>
       )}
+
       {error && (
         <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           Fehler: {error}
         </div>
       )}
     </div>
-  );
+  )
 }
