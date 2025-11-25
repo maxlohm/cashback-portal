@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-type Partner = { id: string; name: string | null };
+type Partner = { id: string; name: string | null; email: string | null };
 
 export default function InfluencerPayoutClient({ partners }: { partners: Partner[] }) {
   const supabase = useMemo(() => createClientComponentClient(), []);
@@ -62,18 +62,18 @@ export default function InfluencerPayoutClient({ partners }: { partners: Partner
           <label className="text-xs font-medium text-gray-700">
             Influencer
           </label>
-          <select
-            className="border rounded px-2 py-1 text-sm bg-white"
-            value={partnerId}
-            onChange={e => setPartnerId(e.target.value)}
-          >
-            <option value="all">Alle Influencer</option>
-            {partners.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name || p.id}
-              </option>
-            ))}
-          </select>
+        <select
+  className="border rounded px-2 py-1 text-sm bg-white"
+  value={partnerId}
+  onChange={e => setPartnerId(e.target.value)}
+>
+  <option value="all">Alle Influencer</option>
+  {partners.map(p => (
+    <option key={p.id} value={p.id}>
+      {p.name || p.email || p.id}
+    </option>
+  ))}
+</select>
         </div>
 
         <div className="flex flex-wrap gap-3">

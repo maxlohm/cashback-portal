@@ -1,3 +1,4 @@
+// app/components/header.tsx (oder wo dein Header liegt)
 'use client'
 
 import Link from 'next/link'
@@ -27,13 +28,14 @@ export default function Header() {
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
-          .eq('user_id', user.id)       // Fix: user_id statt id
+          .eq('user_id', user.id)
           .maybeSingle()
 
         // Admin-Check über RPC
         const { data: isAdminFlag } = await supabase.rpc('is_admin')
 
-        setIsPartner(!!partner || isAdminFlag === true) // Admin darf auch Partner-Dashboard sehen
+        // Admin darf auch Partner-Dashboard sehen
+        setIsPartner(!!partner || isAdminFlag === true)
         setIsAdmin(isAdminFlag === true)
       }
 
@@ -73,26 +75,59 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
-              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">Angebote</Link>
+              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
+                Angebote
+              </Link>
 
               {!loadingAuth && loggedIn && (
                 <>
-                  <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">Mein Profil</Link>
-                  <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">Dashboard</Link>
+                  <Link
+                    href="/profil-bearbeiten"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                  >
+                    Mein Profil
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="block px-4 py-2 hover:bg-gray-100"
+                  >
+                    Dashboard
+                  </Link>
 
                   {isPartner && (
-                    <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">
+                    <Link
+                      href="/partner-dashboard"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
                       Partner-Dashboard
                     </Link>
                   )}
 
                   {isAdmin && (
                     <>
-                      <div className="px-4 pt-2 text-xs text-gray-500">Admin</div>
-                      <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
+                      <div className="px-4 pt-2 text-xs text-gray-500">
+                        Admin
+                      </div>
+
+                      <Link
+                        href="/admin/redemptions"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
                         Admin-Dashboard
                       </Link>
-                      <Link href="/admin/users" className="block px-4 py-2 hover:bg-gray-100">
+
+                      {/* NEU: Influencer-Abrechnung */}
+                      <Link
+                        href="/admin/influencer-payout"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
+                        Influencer-Abrechnung
+                      </Link>
+
+                      <Link
+                        href="/admin/users"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
                         Nutzerverwaltung
                       </Link>
                     </>
@@ -100,11 +135,15 @@ export default function Header() {
                 </>
               )}
 
-              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">Support</Link>
-              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">FAQ</Link>
+              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">
+                Support
+              </Link>
+              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">
+                FAQ
+              </Link>
 
-              {!loadingAuth && (
-                loggedIn ? (
+              {!loadingAuth &&
+                (loggedIn ? (
                   <button
                     onClick={handleLogout}
                     className="w-full text-right px-4 py-2 text-red-600 hover:bg-gray-100"
@@ -113,11 +152,17 @@ export default function Header() {
                   </button>
                 ) : (
                   <>
-                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">Login</Link>
-                    <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">Registrieren</Link>
+                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">
+                      Login
+                    </Link>
+                      <Link
+                        href="/register"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
+                        Registrieren
+                      </Link>
                   </>
-                )
-              )}
+                ))}
             </div>
           )}
         </div>

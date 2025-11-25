@@ -19,7 +19,7 @@ export default async function Page() {
 
   const { data: partners } = await supabase
     .from('partners')
-    .select('id,name')
+    .select('id,name,email')
     .order('name');
 
   return <InfluencerPayoutClient partners={partners ?? []} />;
