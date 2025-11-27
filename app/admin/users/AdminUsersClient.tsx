@@ -3,16 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
+type Role = 'user' | 'influencer' | 'partner' | 'admin'
+
 type Row = {
   user_id: string
   email: string | null
-  role: 'user' | 'influencer' | 'partner' | 'admin'
+  role: Role
   partner_exists: boolean
   partner_subid: string | null
   created_at: string
   total_count: number
-
-  // Balance-Felder (neu)
   total_ready: number
   total_paid: number
   total_pending: number
@@ -26,8 +26,8 @@ export default function AdminUsersClient() {
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
-  // Filter/Paging
-  const [role, setRole] = useState<'all'|'user'|'influencer'|'partner'|'admin'>('all')
+  // Filter / Paging
+  const [role, setRole] = useState<'all' | Role>('all')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [onlyWithBalance, setOnlyWithBalance] = useState(false)
@@ -40,44 +40,60 @@ export default function AdminUsersClient() {
       p_role: role === 'all' ? null : role,
       p_search: search || null,
       p_limit: PAGE_SIZE,
-      p_offset: (page - 1) * PAGE_SIZE
+      p_offset: (page - 1) * PAGE_SIZE,
     })
 
     if (error) {
-      console.error(error.message)
+      console.error('admin_list_users error:', error.message)
       setRows([])
       setTotal(0)
-    } else {
-      let list = (data || []) as Row[]
-      setTotal(list.length ? Number(list[0].total_count) : 0)
-
-      // Filter: nur User mit Guthaben
-      if (onlyWithBalance) {
-        list = list.filter(r => r.available_balance > 0)
-      }
-
-      setRows(list)
+      setLoading(false)
+      return
     }
 
+    let list = (data || []) as Row[]
+    setTotal(list.length ? Number(list[0].total_count) : 0)
+
+    if (onlyWithBalance) {
+      list = list.filter(r => (r.available_balance ?? 0) > 0)
+    }
+
+    setRows(list)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [role, page, onlyWithBalance]) // eslint-disable-line
-
+  // Role / Page / Balance-Filter
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); load() }, 300)
-    return () => clearTimeout(t)
-  }, [search]) // eslint-disable-line
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, page, onlyWithBalance])
 
-  async function setUserRole(user_id: string, newRole: Row['role']) {
+  // Search mit Debounce
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1)
+      load()
+    }, 300)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  async function setUserRole(user_id: string, newRole: Role) {
     setNotice(null)
     const prev = rows
 
-    // Optimistisches Update
-    setRows(r => r.map(x => x.user_id === user_id ? { ...x, role: newRole } : x))
+    // Optimistisch updaten
+    setRows(r =>
+      r.map(x => (x.user_id === user_id ? { ...x, role: newRole } : x)),
+    )
 
-    const { error } = await supabase.rpc('admin_set_user_role', { p_user: user_id, p_role: newRole })
+    const { error } = await supabase.rpc('admin_set_user_role', {
+      p_user: user_id,
+      p_role: newRole,
+    })
+
     if (error) {
+      console.error('admin_set_user_role error:', error.message)
       setRows(prev)
       setNotice('Fehler: ' + error.message)
       return
@@ -88,19 +104,23 @@ export default function AdminUsersClient() {
     setTimeout(() => setNotice(null), 2000)
   }
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Admin – Benutzer</h1>
 
       {/* Filter-Row */}
       <div className="flex flex-wrap gap-3 items-end">
-
         {/* Rolle */}
         <div className="flex flex-col">
           <label className="text-xs text-gray-500">Rolle</label>
           <select
             value={role}
-            onChange={e => { setPage(1); setRole(e.target.value as any) }}
+            onChange={e => {
+              setPage(1)
+              setRole(e.target.value as any)
+            }}
             className="border p-2 rounded min-w-[160px]"
           >
             <option value="all">Alle</option>
@@ -123,18 +143,21 @@ export default function AdminUsersClient() {
         </div>
 
         {/* Nur mit Guthaben */}
-        <div className="flex items-center gap-2">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
             checked={onlyWithBalance}
-            onChange={e => { setPage(1); setOnlyWithBalance(e.target.checked) }}
+            onChange={e => {
+              setPage(1)
+              setOnlyWithBalance(e.target.checked)
+            }}
           />
-          <label className="text-sm text-gray-700">nur mit Guthaben</label>
-        </div>
+          nur mit Guthaben
+        </label>
 
         {/* Paging Info */}
         <div className="ml-auto text-sm text-gray-600">
-          {total} Nutzer • Seite {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+          {total} Nutzer • Seite {page} / {totalPages}
         </div>
       </div>
 
@@ -154,43 +177,54 @@ export default function AdminUsersClient() {
               <th className="p-2">Aktion</th>
             </tr>
           </thead>
-
           <tbody>
             {loading ? (
-              <tr><td className="p-4" colSpan={7}>Lade…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td className="p-4" colSpan={7}>Keine Einträge</td></tr>
-            ) : rows.map(r => (
-              <tr key={r.user_id} className="border-b text-sm">
-                <td className="p-2">{r.email || r.user_id}</td>
-                <td className="p-2">{r.role}</td>
-                <td className="p-2">{r.partner_exists ? 'Ja' : 'Nein'}</td>
-                <td className="p-2">{r.partner_subid || '-'}</td>
-                <td className="p-2">{new Date(r.created_at).toLocaleString()}</td>
-
-                {/* Guthaben */}
-                <td className="p-2 font-semibold">
-                  {r.available_balance.toFixed(2)} €
+              <tr>
+                <td className="p-4" colSpan={7}>
+                  Lade…
                 </td>
-
-                <td className="p-2">
-                  <div className="flex gap-2 flex-wrap">
-                    {(['user','influencer','partner','admin'] as const).map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => setUserRole(r.user_id, opt)}
-                        className={`px-2 py-1 rounded border ${
-                          opt===r.role ? 'bg-gray-200' : 'bg-white hover:shadow'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </td>
-
               </tr>
-            ))}
+            ) : rows.length === 0 ? (
+              <tr>
+                <td className="p-4" colSpan={7}>
+                  Keine Einträge
+                </td>
+              </tr>
+            ) : (
+              rows.map(r => (
+                <tr key={r.user_id} className="border-b text-sm">
+                  <td className="p-2">{r.email || r.user_id}</td>
+                  <td className="p-2">{r.role}</td>
+                  <td className="p-2">{r.partner_exists ? 'Ja' : 'Nein'}</td>
+                  <td className="p-2">{r.partner_subid || '-'}</td>
+                  <td className="p-2">
+                    {new Date(r.created_at).toLocaleString()}
+                  </td>
+                  <td className="p-2 font-semibold">
+                    {Number(r.available_balance ?? 0).toFixed(2)} €
+                  </td>
+                  <td className="p-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {(['user', 'influencer', 'partner', 'admin'] as const).map(
+                        opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setUserRole(r.user_id, opt)}
+                            className={`px-2 py-1 rounded border ${
+                              opt === r.role
+                                ? 'bg-gray-200'
+                                : 'bg-white hover:shadow'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -204,10 +238,9 @@ export default function AdminUsersClient() {
         >
           Zurück
         </button>
-
         <button
           className="px-2 py-1 border rounded"
-          disabled={page >= Math.ceil(total / PAGE_SIZE) || loading}
+          disabled={page >= totalPages || loading}
           onClick={() => setPage(p => p + 1)}
         >
           Weiter
