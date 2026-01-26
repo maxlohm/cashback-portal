@@ -24,9 +24,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <TrackSubid />
         <Header />
-        <main className="w-full px-4 sm:px-8 pt-8 pb-20 min-h-screen">
+        <div className="w-full px-4 sm:px-8 pt-8 pb-20 min-h-screen">
           {children}
-        </main>
+        </div>
         <Footer />
       </body>
     </html>

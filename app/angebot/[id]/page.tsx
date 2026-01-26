@@ -60,9 +60,7 @@ export default async function OfferPage(props: any) {
       </div>
 
       <div className="mt-8 space-y-3">
-        <h1 className="text-3xl font-semibold text-[#003b5b]">
-          {offer.title}
-        </h1>
+        <h1 className="text-3xl font-semibold text-[#003b5b]">{offer.title}</h1>
 
         <RatingSummary avg={avgRating} count={reviewCount} />
 
@@ -73,7 +71,6 @@ export default async function OfferPage(props: any) {
         )}
       </div>
 
-      {/* ⬇️ HIER DER WICHTIGE PART */}
       <div className="mt-5 flex flex-col sm:flex-row gap-3">
         <span className="inline-flex h-10 items-center rounded-lg bg-[#003b5b]/5 px-4 text-sm font-semibold text-[#003b5b]">
           Prämie:&nbsp;{fmt(offer.reward_amount ?? 0)}
@@ -88,9 +85,21 @@ export default async function OfferPage(props: any) {
         </Link>
       </div>
 
-      <p className="mt-3 text-xs text-gray-500">
-        Details & Teilnahmebedingungen gelten beim Anbieter.
-      </p>
+      {/* Pflicht-Hinweise */}
+      <div className="mt-4 rounded-xl border bg-white p-4 text-xs text-gray-600 space-y-2">
+        <p>
+          <strong>Hinweis:</strong> Der Button öffnet einen{' '}
+          <strong>Werbelink (Partnerlink)</strong>. Wenn du darüber beim Anbieter
+          abschließt, erhalten wir ggf. eine Provision.
+        </p>
+        <p>
+          Die <strong>Prämie</strong> wird nur gutgeschrieben, wenn die
+          Teilnahmebedingungen erfüllt sind und der Abschluss vom Partner
+          bestätigt wird. Das kann je nach Partner <strong>30–90 Tage</strong>{' '}
+          dauern.
+        </p>
+        <p>Bei Storno, Widerruf oder Retoure entfällt die Prämie.</p>
+      </div>
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-[#003b5b]">
@@ -115,12 +124,14 @@ export default async function OfferPage(props: any) {
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            ['1', 'Angebot öffnen', 'Klicke auf „Zum Angebot“ und schließe ab.'],
-            ['2', 'Bestätigung abwarten', 'Wir erhalten die Bestätigung.'],
-            ['3', 'Prämie erhalten', 'Nach Freigabe wird deine Prämie ausgezahlt.'],
+            ['1', 'Angebot öffnen', 'Klicke auf „Zum Angebot“ und schließe beim Anbieter ab.'],
+            ['2', 'Bestätigung abwarten', 'Der Partner prüft den Abschluss und bestätigt ihn (i. d. R. 30–90 Tage).'],
+            ['3', 'Prämie erhalten', 'Nach Freigabe kannst du die Prämie im Konto auszahlen lassen.'],
           ].map(([step, title, text]) => (
             <div key={step} className="rounded-2xl border bg-white p-5">
-              <div className="text-sm font-semibold text-[#ca4b24]">Schritt {step}</div>
+              <div className="text-sm font-semibold text-[#ca4b24]">
+                Schritt {step}
+              </div>
               <div className="mt-1 font-medium">{title}</div>
               <div className="mt-1 text-sm text-gray-600">{text}</div>
             </div>
@@ -128,7 +139,6 @@ export default async function OfferPage(props: any) {
         </div>
       </section>
 
-      {/* Bewertungen */}
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-[#003b5b]">Bewertungen</h2>
         <div className="mt-4">
