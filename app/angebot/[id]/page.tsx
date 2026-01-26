@@ -108,9 +108,10 @@ export default async function OfferPage(props: any) {
 
         <div className="mt-4 rounded-2xl border bg-white p-5">
           {typeof terms === 'string' && terms.trim().length > 0 ? (
-            <ReactMarkdown className="prose prose-sm max-w-none text-gray-700">
-              {terms}
-            </ReactMarkdown>
+           <div className="prose prose-sm max-w-none text-gray-700">
+  <ReactMarkdown>{terms}</ReactMarkdown>
+</div>
+
           ) : (
             <div className="space-y-2 text-gray-700">
               <p>Die Teilnahmebedingungen folgen.</p>
