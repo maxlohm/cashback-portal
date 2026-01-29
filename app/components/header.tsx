@@ -1,4 +1,4 @@
-// app/components/header.tsx (oder wo dein Header liegt)
+// app/components/header.tsx
 'use client'
 
 import Link from 'next/link'
@@ -13,31 +13,39 @@ export default function Header() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loadingAuth, setLoadingAuth] = useState(true)
+
   const menuRef = useRef<HTMLDivElement | null>(null)
   const pathname = usePathname()
 
   useEffect(() => {
     const checkUser = async () => {
+      setLoadingAuth(true)
+
       const { data } = await supabase.auth.getUser()
       const user = data?.user
 
-      if (user) {
-        setLoggedIn(true)
-
-        // Partner-Check über user_id
-        const { data: partner } = await supabase
-          .from('partners')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle()
-
-        // Admin-Check über RPC
-        const { data: isAdminFlag } = await supabase.rpc('is_admin')
-
-        // Admin darf auch Partner-Dashboard sehen
-        setIsPartner(!!partner || isAdminFlag === true)
-        setIsAdmin(isAdminFlag === true)
+      if (!user) {
+        setLoggedIn(false)
+        setIsPartner(false)
+        setIsAdmin(false)
+        setLoadingAuth(false)
+        return
       }
+
+      setLoggedIn(true)
+
+      // Partner?
+      const { data: partner } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      // Admin?
+      const { data: adminFlag } = await supabase.rpc('is_admin')
+
+      setIsAdmin(adminFlag === true)
+      setIsPartner(!!partner || adminFlag === true)
 
       setLoadingAuth(false)
     }
@@ -62,113 +70,110 @@ export default function Header() {
 
   return (
     <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50">
-      {/* Menü-Button */}
-      <div ref={menuRef} className="absolute top-4 right-4 z-50 sm:top-6 sm:right-6">
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-10 h-10 sm:w-12 sm:h-12 bg-white border border-gray-300 rounded-md shadow hover:bg-gray-100 text-xl font-bold transition"
-            aria-label="Menü öffnen"
-          >
-            ☰
-          </button>
+      {/* Menü */}
+      <div ref={menuRef} className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50">
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          className="w-10 h-10 sm:w-12 sm:h-12 bg-white border border-gray-300 rounded-md shadow hover:bg-gray-100 text-xl font-bold transition"
+          aria-label="Menü öffnen"
+        >
+          ☰
+        </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
-              <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
-                Angebote
-              </Link>
+        {menuOpen && (
+          <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md text-sm overflow-hidden">
+            <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
+              Angebote
+            </Link>
 
-              {!loadingAuth && loggedIn && (
-                <>
+            {!loadingAuth && loggedIn && (
+              <>
+                <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">
+                  Dashboard
+                </Link>
+
+                <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">
+                  Mein Profil
+                </Link>
+
+                {isPartner && (
                   <Link
-                    href="/profil-bearbeiten"
+                    href="/partner-dashboard"
                     className="block px-4 py-2 hover:bg-gray-100"
                   >
-                    Mein Profil
+                    Partner-Dashboard
                   </Link>
-                  <Link
-                    href="/dashboard"
-                    className="block px-4 py-2 hover:bg-gray-100"
-                  >
-                    Dashboard
-                  </Link>
+                )}
 
-                  {isPartner && (
+                {isAdmin && (
+                  <>
+                    <div className="px-4 pt-2 text-xs text-gray-500">
+                      Admin
+                    </div>
+
                     <Link
-                      href="/partner-dashboard"
+                      href="/admin/redemptions"
                       className="block px-4 py-2 hover:bg-gray-100"
                     >
-                      Partner-Dashboard
+                      Auszahlungen
                     </Link>
-                  )}
 
-                  {isAdmin && (
-                    <>
-                      <div className="px-4 pt-2 text-xs text-gray-500">
-                        Admin
-                      </div>
-
-                      <Link
-                        href="/admin/redemptions"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Admin-Dashboard
-                      </Link>
-
-                      {/* NEU: Influencer-Abrechnung */}
-                      <Link
-                        href="/admin/influencer-payout"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Influencer-Abrechnung
-                      </Link>
-
-                      <Link
-                        href="/admin/users"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Nutzerverwaltung
-                      </Link>
-                    </>
-                  )}
-                </>
-              )}
-
-              <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">
-                Support
-              </Link>
-              <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">
-                FAQ
-              </Link>
-
-              {!loadingAuth &&
-                (loggedIn ? (
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-right px-4 py-2 text-red-600 hover:bg-gray-100"
-                  >
-                    🔓 Logout
-                  </button>
-                ) : (
-                  <>
-                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">
-                      Login
+                    <Link
+                      href="/admin/influencer-payout"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
+                      Influencer-Abrechnung
                     </Link>
-                      <Link
-                        href="/register"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Registrieren
-                      </Link>
+
+                    <Link
+                      href="/admin/users"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
+                      Nutzerverwaltung
+                    </Link>
+
+                    <Link
+                      href="/admin/support"
+                      className="block px-4 py-2 hover:bg-gray-100 font-medium text-[#003b5b]"
+                    >
+                      Support / Nachverfolgung
+                    </Link>
                   </>
-                ))}
-            </div>
-          )}
-        </div>
+                )}
+              </>
+            )}
+
+            <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">
+              Kontakt
+            </Link>
+
+            <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">
+              FAQ
+            </Link>
+
+            {!loadingAuth &&
+              (loggedIn ? (
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-right px-4 py-2 text-red-600 hover:bg-gray-100"
+                >
+                  Logout
+                </button>
+              ) : (
+                <>
+                  <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">
+                    Login
+                  </Link>
+                  <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">
+                    Registrieren
+                  </Link>
+                </>
+              ))}
+          </div>
+        )}
       </div>
 
-      {/* Header-Inhalte */}
+      {/* Header-Inhalt */}
       <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
         {/* Logo */}
         <div className="w-36 sm:w-40 md:w-44">
@@ -189,7 +194,7 @@ export default function Header() {
         <div className="w-52 sm:w-80 md:w-[360px] lg:w-[400px]">
           <Image
             src="/Logo_Schrift.png"
-            alt="Bonus-Nest Schriftzug"
+            alt="Bonus-Nest"
             width={0}
             height={0}
             sizes="100vw"
@@ -198,7 +203,7 @@ export default function Header() {
           />
         </div>
 
-        {/* Maus – Mobil ausgeblendet */}
+        {/* Maus */}
         <div className="hidden sm:block w-36 md:w-44 -mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"

@@ -33,40 +33,37 @@ type RedemptionRow = {
 type VoucherOption = {
   id: string;
   label: string;
-  minAmount: number;
+  amounts: number[]; // fixe Gutscheinwerte, kein Freitext
 };
 
 const VOUCHERS: VoucherOption[] = [
-  { id: 'Amazon', label: 'Amazon', minAmount: 1 },
-  { id: 'Zalando', label: 'Zalando', minAmount: 5 },
-  { id: 'Otto', label: 'Otto', minAmount: 5 },
-  { id: 'toom', label: 'toom Baumarkt', minAmount: 5 },
-  { id: 'IKEA', label: 'IKEA', minAmount: 5 },
-  { id: 'MediaMarkt', label: 'MediaMarkt', minAmount: 5 },
-  { id: 'Aral', label: 'Aral Gutschein', minAmount: 10 },
-  { id: 'Rossmann', label: 'Rossmann', minAmount: 5 },
-  { id: 'H&M', label: 'H&M', minAmount: 5 },
-  { id: 'Kaufland', label: 'Kaufland', minAmount: 5 },
-  { id: 'quirion', label: 'quirion', minAmount: 15 },
-  { id: 'Rewe', label: 'Rewe', minAmount: 5 },
-  { id: 'airbnb', label: 'airbnb', minAmount: 50 },
-  { id: 'drive&ride', label: 'drive&ride', minAmount: 10 },
-  { id: 'Apple', label: 'Apple Gift Card', minAmount: 10 },
-  { id: 'GooglePlay', label: 'Google Play Gift Card', minAmount: 5 },
-  { id: 'Netflix', label: 'Netflix', minAmount: 25 },
-  { id: 'Spotify', label: 'Spotify', minAmount: 5 },
-  { id: 'Steam', label: 'Steam', minAmount: 5 },
-  { id: 'Lidl', label: 'Lidl', minAmount: 5 },
-  { id: 'eBay', label: 'eBay', minAmount: 5 },
+  { id: 'Amazon', label: 'Amazon', amounts: [5, 10, 25, 50] },
+  { id: 'Zalando', label: 'Zalando', amounts: [10, 25, 50] },
+  { id: 'Otto', label: 'Otto', amounts: [10, 25, 50] },
+  { id: 'toom', label: 'toom Baumarkt', amounts: [5, 10, 25] },
+  { id: 'IKEA', label: 'IKEA', amounts: [10, 25, 50] },
+  { id: 'MediaMarkt', label: 'MediaMarkt', amounts: [10, 25, 50] },
+  { id: 'Aral', label: 'Aral Gutschein', amounts: [10, 25, 50] },
+  { id: 'Rossmann', label: 'Rossmann', amounts: [5, 10, 25] },
+  { id: 'H&M', label: 'H&M', amounts: [5, 10, 25] },
+  { id: 'Kaufland', label: 'Kaufland', amounts: [5, 10, 25] },
+  { id: 'quirion', label: 'quirion', amounts: [15, 25, 50] },
+  { id: 'Rewe', label: 'Rewe', amounts: [5, 10, 25] },
+  { id: 'airbnb', label: 'airbnb', amounts: [50, 100] },
+  { id: 'drive&ride', label: 'drive&ride', amounts: [10, 25, 50] },
+  { id: 'Apple', label: 'Apple Gift Card', amounts: [10, 25, 50] },
+  { id: 'GooglePlay', label: 'Google Play Gift Card', amounts: [5, 10, 25] },
+  { id: 'Netflix', label: 'Netflix', amounts: [25, 50] },
+  { id: 'Spotify', label: 'Spotify', amounts: [5, 10, 25] },
+  { id: 'Steam', label: 'Steam', amounts: [5, 10, 25, 50] },
+  { id: 'Lidl', label: 'Lidl', amounts: [5, 10, 25] },
+  { id: 'eBay', label: 'eBay', amounts: [5, 10, 25, 50] },
 ];
 
 const fmtMoney = new Intl.NumberFormat('de-DE', {
   style: 'currency',
   currency: 'EUR',
 });
-
-// globales Minimum – sollte zum Backend-Check in create_redemption_request passen
-const MIN_PAYOUT = 1;
 
 export default function UserDashboardClient() {
   const supabase = useMemo(() => createClientComponentClient(), []);
@@ -78,10 +75,26 @@ export default function UserDashboardClient() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>(
     VOUCHERS[0]?.id ?? 'Amazon',
   );
   const [voucherOpen, setVoucherOpen] = useState(true);
+
+  // fixer Betrag aus Auswahl-Chips
+  const [selectedAmount, setSelectedAmount] = useState<number>(
+    VOUCHERS[0]?.amounts?.[0] ?? 10,
+  );
+
+  const selectedVoucher =
+    VOUCHERS.find((v) => v.id === selectedVoucherId) ?? VOUCHERS[0];
+
+  useEffect(() => {
+    // Wenn Voucher wechselt, setze auf kleinsten Wert des neuen Vouchers
+    const first = selectedVoucher?.amounts?.[0] ?? 10;
+    setSelectedAmount(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVoucherId]);
 
   const load = async () => {
     setLoading(true);
@@ -102,9 +115,7 @@ export default function UserDashboardClient() {
       }
       setBalance(bal);
 
-      // Leads für Endkunden:
-      // - Betrag = offers.reward_amount
-      // - Datum = confirmed_at oder clicks.clicked_at
+      // Leads
       const { data: leadRows, error: leadErr } = await supabase
         .from('leads')
         .select(
@@ -116,14 +127,8 @@ export default function UserDashboardClient() {
       if (leadErr) throw leadErr;
 
       const leadsMapped: LeadRow[] = (leadRows || []).map((row: any) => {
-        const clickedAt = row.clicks?.clicked_at as
-          | string
-          | null
-          | undefined;
-        const confirmedAt = row.confirmed_at as
-          | string
-          | null
-          | undefined;
+        const clickedAt = row.clicks?.clicked_at as string | null | undefined;
+        const confirmedAt = row.confirmed_at as string | null | undefined;
         const effectiveDate =
           confirmedAt ?? clickedAt ?? new Date().toISOString();
 
@@ -147,7 +152,7 @@ export default function UserDashboardClient() {
       if (redErr) throw redErr;
 
       const mapped: RedemptionRow[] = (redRows || []).map((r: any) => ({
-        id: r.redemption_id,
+        id: r.redemption_id ?? r.id,
         amount: Number(r.amount),
         status: r.status,
         created_at: r.created_at,
@@ -169,15 +174,15 @@ export default function UserDashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectedVoucher =
-    VOUCHERS.find((v) => v.id === selectedVoucherId) ?? VOUCHERS[0];
+  const available = balance?.available_balance ?? 0;
 
-  const effectiveMin = Math.max(MIN_PAYOUT, selectedVoucher.minAmount);
-  const hasOpenRequest = redemptions.some((r) =>
+  const openCount = redemptions.filter((r) =>
     ['pending', 'approved', 'processing'].includes(r.status),
-  );
-  const canRequest =
-    (balance?.available_balance ?? 0) >= effectiveMin && !hasOpenRequest;
+  ).length;
+
+  const reachedLimit = openCount >= 3;
+
+  const canRequest = available >= selectedAmount && !reachedLimit;
 
   const requestPayout = async () => {
     if (!canRequest) return;
@@ -190,7 +195,7 @@ export default function UserDashboardClient() {
       const { error: rpcError } = await supabase.rpc(
         'create_redemption_request',
         {
-          p_amount: effectiveMin,
+          p_amount: selectedAmount,
           p_voucher_type: selectedVoucher.id,
         },
       );
@@ -219,15 +224,14 @@ export default function UserDashboardClient() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-8">
       {/* Header */}
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold text-slate-900">
           Dein Bonus-Nest Dashboard
         </h1>
         <p className="text-sm text-slate-600">
-          Behalte dein Guthaben, deine Transaktionen und deine Auszahlungen
-          im Blick.
+          Behalte dein Guthaben, deine Transaktionen und deine Auszahlungen im Blick.
         </p>
       </header>
 
@@ -263,8 +267,7 @@ export default function UserDashboardClient() {
                 Gutschein anfordern
               </h2>
               <p className="text-sm text-slate-600">
-                Wähle deinen Wunschgutschein. Wir prüfen deine Anfrage und
-                senden dir den Code, sobald die Auszahlung bestätigt wurde.
+                Wähle deinen Wunschgutschein und den Betrag. Wir prüfen deine Anfrage und senden dir den Code, sobald die Auszahlung bestätigt wurde.
               </p>
             </div>
             <button
@@ -272,26 +275,24 @@ export default function UserDashboardClient() {
               onClick={() => setVoucherOpen((v) => !v)}
               className="mt-1 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
             >
-              {voucherOpen
-                ? 'Gutscheine ausblenden'
-                : 'Gutscheine anzeigen'}
+              {voucherOpen ? 'Gutscheine ausblenden' : 'Gutscheine anzeigen'}
             </button>
           </div>
 
-          {/* Aktuell ausgewählter Gutschein (Kurzinfo) */}
+          {/* Aktuell ausgewählter Gutschein */}
           <div className="text-xs text-slate-600">
             Ausgewählter Gutschein:{' '}
             <span className="font-medium text-slate-900">
               {selectedVoucher.label}
-            </span>{' '}
-            (ab {fmtMoney.format(selectedVoucher.minAmount)})
+            </span>
           </div>
 
-          {/* Gutschein-Auswahl im Grid – ein-/ausklappbar */}
+          {/* Gutschein-Auswahl */}
           {voucherOpen && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {VOUCHERS.map((v) => {
                 const isActive = v.id === selectedVoucherId;
+                const minAmt = Math.min(...v.amounts);
                 return (
                   <button
                     key={v.id}
@@ -300,14 +301,12 @@ export default function UserDashboardClient() {
                     className={[
                       'flex flex-col items-start rounded-xl border px-3 py-3 text-left text-sm transition',
                       'bg-slate-50 hover:bg-slate-100',
-                      isActive
-                        ? 'border-slate-900 shadow-sm'
-                        : 'border-slate-200',
+                      isActive ? 'border-slate-900 shadow-sm' : 'border-slate-200',
                     ].join(' ')}
                   >
                     <div className="flex w-full items-center justify-between gap-2">
                       <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                        ab {fmtMoney.format(v.minAmount)}
+                        ab {fmtMoney.format(minAmt)}
                       </span>
                       <span
                         className={[
@@ -327,6 +326,41 @@ export default function UserDashboardClient() {
             </div>
           )}
 
+          {/* Betrag */}
+          <div className="mt-1">
+            <div className="text-xs font-medium text-slate-700">Betrag</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(selectedVoucher?.amounts ?? []).map((amt) => {
+                const active = amt === selectedAmount;
+                const disabled = amt > available;
+                return (
+                  <button
+                    key={amt}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSelectedAmount(amt)}
+                    className={[
+                      'rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition',
+                      active
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                      disabled ? 'opacity-50 cursor-not-allowed hover:bg-white' : '',
+                    ].join(' ')}
+                    title={disabled ? 'Nicht genügend Guthaben' : undefined}
+                  >
+                    {fmtMoney.format(amt)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-500">
+              Verfügbar:{' '}
+              <span className="font-medium text-slate-700">
+                {fmtMoney.format(available)}
+              </span>
+            </div>
+          </div>
+
           {/* Button + Hinweise */}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
@@ -336,29 +370,33 @@ export default function UserDashboardClient() {
             >
               {busy
                 ? 'Sende …'
-                : `Gutschein anfordern (ab ${fmtMoney.format(
-                    effectiveMin,
-                  )})`}
+                : `Gutschein anfordern (${fmtMoney.format(selectedAmount)})`}
             </button>
 
             <div className="text-xs text-slate-500">
-              Mindestbetrag hängt vom gewählten Gutschein ab.
+              Maximal drei offene Auszahlungsanfragen gleichzeitig.
             </div>
           </div>
 
+          {/* Status-Badges */}
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            {hasOpenRequest && (
+            {openCount > 0 && (
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
-                Es gibt bereits eine offene Auszahlungsanfrage.
+                Offene Anfragen: {openCount}/3
               </span>
             )}
-            {!hasOpenRequest &&
-              (balance?.available_balance ?? 0) < effectiveMin && (
-                <span className="rounded-full bg-slate-50 px-2 py-0.5">
-                  Noch nicht genug auszahlbares Guthaben für den ausgewählten
-                  Gutschein.
-                </span>
-              )}
+
+            {reachedLimit && (
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                Limit erreicht. Bitte warte, bis eine Anfrage abgeschlossen ist.
+              </span>
+            )}
+
+            {!reachedLimit && available < selectedAmount && (
+              <span className="rounded-full bg-slate-50 px-2 py-0.5">
+                Nicht genügend auszahlbares Guthaben für den ausgewählten Betrag.
+              </span>
+            )}
           </div>
 
           {notice && (
@@ -431,9 +469,7 @@ export default function UserDashboardClient() {
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-slate-700">
-                        {l.amount != null
-                          ? fmtMoney.format(l.amount)
-                          : '–'}
+                        {l.amount != null ? fmtMoney.format(l.amount) : '–'}
                       </td>
                       <td className="px-2 py-1.5">
                         <LeadStatusBadge
@@ -611,9 +647,9 @@ function LeadStatusBadge({
     );
   return (
     <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-      Bestätigt
-    </span>
-  );
+        Bestätigt
+      </span>
+    );
 }
 
 function RedemptionBadge({
@@ -673,11 +709,13 @@ function CopyableCode({ code }: { code: string }) {
 }
 
 function humanizeError(msg: string) {
-  if (msg.includes('request_exists'))
+  if (msg.includes('too_many_open_requests'))
+    return 'Du kannst maximal drei offene Auszahlungsanfragen gleichzeitig haben.';
+  if (msg.includes('request_exists') || msg.includes('open voucher redemption'))
     return 'Es gibt bereits eine offene Auszahlungsanfrage.';
   if (msg.includes('insufficient') || msg.includes('balance'))
     return 'Nicht genügend auszahlbares Guthaben.';
   if (msg.includes('minimum payout'))
-    return 'Mindestbetrag für Auszahlungen ist nicht erreicht.';
+    return 'Mindestbetrag für diesen Gutschein ist nicht erreicht.';
   return msg;
 }
