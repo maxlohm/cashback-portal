@@ -20,7 +20,8 @@ export default function RegisterPage() {
   const validatePassword = (pw: string) => /^(?=.*[A-Z])(?=.*\d).{8,}$/.test(pw)
 
   const handleRegister = async () => {
-    setError(null); setSuccess(null)
+    setError(null)
+    setSuccess(null)
 
     if (!username || !firstName || !lastName || !email || !password) {
       setError('Bitte fülle alle Felder aus.')
@@ -41,7 +42,6 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      // Kein Pre-Select auf profiles (RLS / Spaltenproblem). E-Mail-Unique prüft Supabase Auth.
       const { error: signupError } = await supabase.auth.signUp({
         email,
         password,
@@ -51,7 +51,7 @@ export default function RegisterPage() {
             firstName,
             lastName,
           },
-          // Falls du Magic Link bevorzugst: emailRedirectTo: `${location.origin}/auth/callback`
+          // emailRedirectTo: `${location.origin}/auth/callback`,
         },
       })
 
@@ -65,10 +65,11 @@ export default function RegisterPage() {
         return
       }
 
-      // Hinweis: Nach signUp gibt es meist keine aktive Session (E-Mail-Bestätigung erforderlich).
-      // Partner-Attribution bitte nach erstem Login vornehmen (siehe Login-Seite).
-
+      // Erfolg + Auto-Redirect auf Login
       setSuccess('✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail über den Link im Posteingang.')
+      setTimeout(() => {
+        router.push('/login')
+      }, 2500)
     } catch {
       setError('Unerwarteter Fehler bei der Registrierung.')
     } finally {
@@ -126,9 +127,14 @@ export default function RegisterPage() {
           />
           <span>
             Ich akzeptiere die{' '}
-            <a href="/agb" className="underline text-blue-600">Nutzungsbedingungen</a>{' '}
+            <a href="/agb" className="underline text-blue-600">
+              Nutzungsbedingungen
+            </a>{' '}
             und die{' '}
-            <a href="/datenschutz" className="underline text-blue-600">Datenschutzbestimmungen</a>.
+            <a href="/datenschutz" className="underline text-blue-600">
+              Datenschutzbestimmungen
+            </a>
+            .
           </span>
         </label>
 
@@ -140,7 +146,8 @@ export default function RegisterPage() {
             className="mt-1 mr-2 accent-[#003b5b]"
           />
           <span>
-            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei Verstoß können Accounts gesperrt und Prämien storniert werden.
+            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei
+            Verstoß können Accounts gesperrt und Prämien storniert werden.
           </span>
         </label>
 
