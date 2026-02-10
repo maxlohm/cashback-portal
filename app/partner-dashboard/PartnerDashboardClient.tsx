@@ -40,10 +40,12 @@ type RedemptionRow = {
 }
 
 type SeriesPoint = { d: string; amount: number }
-
 type Offer = { id: string; title: string }
 
 const fmtEUR = (n: number) => `${n.toFixed(2)} €`
+const fmtPct = (r: number | null) =>
+  r == null ? '—' : `${Math.round(r * 100)} %`
+
 const monthKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
@@ -62,6 +64,7 @@ export default function PartnerDashboardClient() {
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
   const [userId, setUserId] = useState<string | null>(null)
+  const [commissionRate, setCommissionRate] = useState<number | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,9 +77,7 @@ export default function PartnerDashboardClient() {
   // Site-URL robust bestimmen
   const siteUrl = useMemo(() => {
     if (typeof window !== 'undefined') {
-      return (
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin || ''
-      )
+      return process.env.NEXT_PUBLIC_SITE_URL || window.location.origin || ''
     }
     return process.env.NEXT_PUBLIC_SITE_URL || ''
   }, [])
@@ -93,11 +94,29 @@ export default function PartnerDashboardClient() {
     return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
   }, [month, customFrom, customTo])
 
-  /** Initial load: User + Offers */
+  /** Initial load: User + Commission + Offers */
   useEffect(() => {
     ;(async () => {
       const { data: u } = await supabase.auth.getUser()
-      setUserId(u.user?.id ?? null)
+      const uid = u.user?.id ?? null
+      setUserId(uid)
+
+      // Commission Rate laden (partners.id == auth.uid()).
+      // Falls du es in profiles hältst, ersetze "partners" durch "profiles".
+      if (uid) {
+        const { data: p, error: pErr } = await supabase
+          .from('partners')
+          .select('commission_rate')
+          .eq('id', uid)
+          .maybeSingle()
+
+        if (!pErr) {
+          const r = (p as any)?.commission_rate
+          setCommissionRate(r == null ? null : Number(r))
+        } else {
+          console.error(pErr)
+        }
+      }
 
       const { data: off, error: offErr } = await supabase
         .from('offers')
@@ -172,37 +191,24 @@ export default function PartnerDashboardClient() {
     const open = leads.filter(x => !x.confirmed).length
     const confirmed = leads.filter(x => x.confirmed).length
 
-    const readyLeads = leads.filter(
-      x => x.payout_ready && !x.influencer_paid
-    )
-
+    const readyLeads = leads.filter(x => x.payout_ready && !x.influencer_paid)
     const ready = readyLeads.length
 
-    const sumReady = readyLeads.reduce(
-      (a, b) => a + Number(b.amount || 0),
-      0
-    )
+    const sumReady = readyLeads.reduce((a, b) => a + Number(b.amount || 0), 0)
+    const sumPeriod = leads.reduce((a, b) => a + Number(b.amount || 0), 0)
 
-    const sumPeriod = leads.reduce(
-      (a, b) => a + Number(b.amount || 0),
-      0
-    )
+    // Optional: grobe Erwartung aus % (nur Anzeige, keine Abrechnung)
+    const expectedCommission =
+      commissionRate == null ? null : sumReady * commissionRate
 
-    return { open, confirmed, ready, sumReady, sumPeriod }
-  }, [leads])
+    return { open, confirmed, ready, sumReady, sumPeriod, expectedCommission }
+  }, [leads, commissionRate])
 
   const topOffers = useMemo(() => {
-    const m = new Map<
-      string,
-      { title: string; sum: number; count: number }
-    >()
+    const m = new Map<string, { title: string; sum: number; count: number }>()
     for (const l of leads) {
       const cur =
-        m.get(l.offer_id) ?? {
-          title: l.offer_title,
-          sum: 0,
-          count: 0,
-        }
+        m.get(l.offer_id) ?? { title: l.offer_title, sum: 0, count: 0 }
       cur.sum += Number(l.amount || 0)
       cur.count += 1
       m.set(l.offer_id, cur)
@@ -214,14 +220,10 @@ export default function PartnerDashboardClient() {
   }, [leads])
 
   const hasOpenRequest = useMemo(
-    () =>
-      redemptions.some(r =>
-        ['pending', 'approved', 'processing'].includes(r.status),
-      ),
+    () => redemptions.some(r => ['pending', 'approved', 'processing'].includes(r.status)),
     [redemptions],
   )
 
-  /** Influencer-Auszahlung → Rechnung */
   async function requestPayout() {
     alert(
       'Für Auszahlungen sende uns bitte deine Rechnung über dein offenes Guthaben.\n\n' +
@@ -247,26 +249,44 @@ export default function PartnerDashboardClient() {
     const arr: string[] = []
     const d = new Date()
     for (let i = 0; i < 12; i++) {
-      arr.push(
-        monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)),
-      )
+      arr.push(monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)))
     }
     return arr
   }, [])
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
+        <div>
+          <div className="text-xs text-gray-500">Influencer Dashboard</div>
+          <h1 className="text-2xl font-semibold">Übersicht</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Performance, Links, Leads und Auszahlungen an einem Ort.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            className="px-3 py-2 border rounded bg-white text-sm"
+            onClick={refresh}
+          >
+            Aktualisieren
+          </button>
+        </div>
+      </div>
+
       {/* Promo Links */}
       <Section
         title="Meine Promo-Links"
+        subtitle="Links zum Teilen – Sub-ID wird automatisch ergänzt"
         open={openLinks}
         onToggle={() => setOpenLinks(v => !v)}
       >
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row gap-2 md:items-center">
-            <label className="text-sm w-44">Landing-Link</label>
+          <Row label="Landing-Link">
             <input
-              className="flex-1 border rounded px-3 py-2 text-sm"
+              className="flex-1 border rounded px-3 py-2 text-sm bg-white"
               readOnly
               value={landingLink}
             />
@@ -277,10 +297,9 @@ export default function PartnerDashboardClient() {
             >
               kopieren
             </button>
-          </div>
+          </Row>
 
-          <div className="flex flex-col md:flex-row gap-2 md:items-center">
-            <label className="text-sm w-44">Deal-Link</label>
+          <Row label="Deal-Link">
             <select
               className="border rounded px-2 py-2 text-sm bg-white"
               value={selectedOfferId ?? ''}
@@ -292,133 +311,145 @@ export default function PartnerDashboardClient() {
                 </option>
               ))}
             </select>
+
             <input
-              className="flex-1 border rounded px-3 py-2 text-sm"
+              className="flex-1 border rounded px-3 py-2 text-sm bg-white"
               readOnly
               value={dealLink(selectedOfferId) || ''}
             />
+
             <button
               className="px-3 py-2 border rounded bg-white text-sm"
-              onClick={() =>
-                copy(dealLink(selectedOfferId) || '')
-              }
+              onClick={() => copy(dealLink(selectedOfferId) || '')}
               disabled={!dealLink(selectedOfferId)}
             >
               kopieren
             </button>
-          </div>
+          </Row>
 
           <p className="text-xs text-gray-500">
-            Deine Sub-ID wird automatisch im Redirect eingefügt
-            (FinanceAds=subid, AWIN=clickref, Belboon=smc1).
+            Netzwerk-Mapping: FinanceAds=subid, AWIN=clickref, Belboon=smc1.
           </p>
         </div>
       </Section>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Kpi title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
         <Kpi title="Leads bestätigt" value={kpis.confirmed} />
-        <Kpi
-          title="Einnahmen (Zeitraum)"
-          value={fmtEUR(kpis.sumPeriod)}
-        />
-        <Kpi
-          title="Auszahlbar"
-          value={fmtEUR(kpis.sumReady)}
-        />
+        <Kpi title="Einnahmen (Zeitraum)" value={fmtEUR(kpis.sumPeriod)} />
+        <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
+        <Kpi title="Provision" value={fmtPct(commissionRate)} sub="Dein Anteil" />
         <Kpi
           title="Einnahmen gesamt"
           value={fmtEUR(stats?.total_earnings ?? 0)}
         />
       </div>
 
-      {/* Filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-3 py-2 rounded border text-sm ${
-              statusFilter === s
-                ? 'bg-[#003b5b] text-white'
-                : 'bg-white'
-            }`}
-          >
-            {s === 'all'
-              ? 'Alle'
-              : s === 'open'
-              ? 'Offen'
-              : s === 'confirmed'
-              ? 'Bestätigt'
-              : 'Auszahlbar'}
-          </button>
-        ))}
-
-        <select
-          className="border rounded px-2 py-2 text-sm bg-white"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-        >
-          <option value="all">Alle Monate</option>
-          {last12.map(m => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-          <option value="custom">Benutzerdefiniert…</option>
-        </select>
-
-        {month === 'custom' && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={customFrom}
-              onChange={e => setCustomFrom(e.target.value)}
-            />
-            <span className="text-sm">bis</span>
-            <input
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={customTo}
-              onChange={e => setCustomTo(e.target.value)}
-            />
+      {/* Status + Zeitraum Filter */}
+      <div className="bg-white border rounded p-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
             <button
-              className="px-3 py-2 border rounded text-sm bg-white"
-              onClick={refresh}
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-2 rounded border text-sm ${
+                statusFilter === s ? 'bg-[#003b5b] text-white' : 'bg-white'
+              }`}
             >
-              Anwenden
+              {s === 'all'
+                ? 'Alle'
+                : s === 'open'
+                ? 'Offen'
+                : s === 'confirmed'
+                ? 'Bestätigt'
+                : 'Auszahlbar'}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="border rounded px-2 py-2 text-sm bg-white"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+          >
+            <option value="all">Alle Monate</option>
+            {last12.map(m => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="custom">Benutzerdefiniert…</option>
+          </select>
+
+          {month === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="border rounded px-2 py-1 text-sm"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+              />
+              <span className="text-sm text-gray-600">bis</span>
+              <input
+                type="date"
+                className="border rounded px-2 py-1 text-sm"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+              />
+              <button
+                className="px-3 py-2 border rounded text-sm bg-white"
+                onClick={refresh}
+              >
+                Anwenden
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Chart */}
-      <div className="w-full h-64 bg-white border rounded p-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="d" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="amount" strokeWidth={2} />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="bg-white border rounded p-4">
+        <div className="flex items-end justify-between gap-2 mb-3">
+          <div>
+            <div className="text-sm font-semibold">Umsatzverlauf</div>
+            <div className="text-xs text-gray-500">
+              Bestätigte Einnahmen im Zeitraum (Timeseries)
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {commissionRate != null && kpis.expectedCommission != null && (
+              <>Grobe Provision (auszahlbar): {fmtEUR(kpis.expectedCommission)}</>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={series}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="d" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="amount" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Auszahlung */}
       <Section
         title="Auszahlung beantragen"
+        subtitle="Rechnung einreichen – wir zahlen nach Vereinbarung aus"
         open={openPayout}
         onToggle={() => setOpenPayout(v => !v)}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Kpi
-            title="Auszahlbares Guthaben"
-            value={fmtEUR(kpis.sumReady)}
-          />
-          <div className="flex items-center md:col-span-2 justify-end gap-3">
+          <Kpi title="Auszahlbares Guthaben" value={fmtEUR(kpis.sumReady)} />
+          <div className="md:col-span-2 flex items-center justify-end gap-3">
             {hasOpenRequest && (
               <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
                 Es gibt bereits eine offene Auszahlungsanfrage.
@@ -433,45 +464,32 @@ export default function PartnerDashboardClient() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Hinweis: Influencer erhalten Auszahlungen per Rechnung. Keine
-          Gutscheine – klassischer B2B-Flow.
-        </p>
+
+        <div className="mt-3 text-xs text-gray-500 space-y-1">
+          <div>• Auszahlung per Rechnung (B2B).</div>
+          <div>• Status „auszahlbar“ bedeutet: Lead ist bestätigt und freigegeben.</div>
+        </div>
       </Section>
 
       {/* Top Offers */}
-      <Section
-        title="Top-Offers (Umsatz im Zeitraum)"
-        open={true}
-        onToggle={() => {}}
-      >
+      <Section title="Top-Offers" subtitle="Umsatz im Zeitraum" open={true} onToggle={() => {}}>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {topOffers.length === 0 && (
-            <div className="text-sm text-gray-500">
-              Noch keine Daten.
-            </div>
+            <div className="text-sm text-gray-500">Noch keine Daten.</div>
           )}
+
           {topOffers.map(t => (
             <div key={t.id} className="bg-white border rounded p-3">
-              <div className="text-sm font-medium">{t.title}</div>
-              <div className="text-xs text-gray-500">
-                {t.count} Lead(s)
-              </div>
-              <div className="text-lg font-semibold mt-1">
-                {fmtEUR(t.sum)}
-              </div>
+              <div className="text-sm font-medium line-clamp-2">{t.title}</div>
+              <div className="text-xs text-gray-500">{t.count} Lead(s)</div>
+              <div className="text-lg font-semibold mt-1">{fmtEUR(t.sum)}</div>
             </div>
           ))}
         </div>
       </Section>
 
       {/* Leads */}
-      <Section
-        title="Leads"
-        subtitle="Deine Leads im Zeitraum"
-        open={openLeads}
-        onToggle={() => setOpenLeads(v => !v)}
-      >
+      <Section title="Leads" subtitle="Deine Leads im Zeitraum" open={openLeads} onToggle={() => setOpenLeads(v => !v)}>
         <div className="overflow-auto bg-white border rounded">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
@@ -482,17 +500,16 @@ export default function PartnerDashboardClient() {
                 <Th className="text-right">Betrag</Th>
               </tr>
             </thead>
+
             <tbody>
               {leads.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={4}
-                    className="text-center p-6 text-gray-500"
-                  >
+                  <td colSpan={4} className="text-center p-6 text-gray-500">
                     Keine Leads gefunden.
                   </td>
                 </tr>
               )}
+
               {leads.map(l => {
                 const date = l.confirmed_at || l.clicked_at
                 const status = l.influencer_paid
@@ -502,32 +519,15 @@ export default function PartnerDashboardClient() {
                   : l.confirmed
                   ? 'bestätigt'
                   : 'offen'
+
                 return (
                   <tr key={l.id} className="border-t">
-                    <Td>
-                      {date
-                        ? new Date(date).toLocaleString('de-DE')
-                        : '-'}
-                    </Td>
+                    <Td>{date ? new Date(date).toLocaleString('de-DE') : '-'}</Td>
                     <Td className="font-medium">{l.offer_title}</Td>
                     <Td>
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          status === 'auszahlbar'
-                            ? 'bg-green-100 text-green-700'
-                            : status === 'bestätigt'
-                            ? 'bg-blue-100 text-blue-700'
-                            : status === 'abgerechnet'
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {status}
-                      </span>
+                      <StatusPill status={status} />
                     </Td>
-                    <Td className="text-right">
-                      {fmtEUR(Number(l.amount || 0))}
-                    </Td>
+                    <Td className="text-right">{fmtEUR(Number(l.amount || 0))}</Td>
                   </tr>
                 )
               })}
@@ -554,28 +554,25 @@ export default function PartnerDashboardClient() {
                 <Th className="text-right">Betrag</Th>
               </tr>
             </thead>
+
             <tbody>
               {redemptions.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-center p-6 text-gray-500"
-                  >
+                  <td colSpan={5} className="text-center p-6 text-gray-500">
                     Noch keine Auszahlungen.
                   </td>
                 </tr>
               )}
+
               {redemptions.map(r => (
                 <tr key={r.id} className="border-t">
+                  <Td>{new Date(r.created_at).toLocaleString('de-DE')}</Td>
                   <Td>
-                    {new Date(r.created_at).toLocaleString('de-DE')}
+                    <span className="text-sm">{r.status}</span>
                   </Td>
-                  <Td>{r.status}</Td>
                   <Td>{r.provider ?? '-'}</Td>
                   <Td>{r.sku ?? '-'}</Td>
-                  <Td className="text-right">
-                    {fmtEUR(Number(r.amount))}
-                  </Td>
+                  <Td className="text-right">{fmtEUR(Number(r.amount))}</Td>
                 </tr>
               ))}
             </tbody>
@@ -583,29 +580,79 @@ export default function PartnerDashboardClient() {
         </div>
       </Section>
 
+      {/* Footer states */}
       {loading && (
         <div className="text-sm text-gray-500">Lade Daten…</div>
       )}
       {error && (
-        <div className="text-sm text-red-600">
-          Fehler: {error}
-        </div>
+        <div className="text-sm text-red-600">Fehler: {error}</div>
       )}
     </div>
   )
 }
 
 /* UI-Helfer */
-function Kpi({ title, value }: { title: string; value: number | string }) {
+function Kpi({
+  title,
+  value,
+  sub,
+}: {
+  title: string
+  value: number | string
+  sub?: string
+}) {
   return (
     <div className="bg-white border rounded p-4">
       <div className="text-xs text-gray-500">{title}</div>
       <div className="text-2xl font-semibold mt-1">{value}</div>
+      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
     </div>
   )
 }
 
-function Section({ title, subtitle, open, onToggle, children }: any) {
+function StatusPill({ status }: { status: string }) {
+  const cls =
+    status === 'auszahlbar'
+      ? 'bg-green-100 text-green-700'
+      : status === 'bestätigt'
+      ? 'bg-blue-100 text-blue-700'
+      : status === 'abgerechnet'
+      ? 'bg-purple-100 text-purple-700'
+      : 'bg-gray-100 text-gray-700'
+
+  return (
+    <span className={`px-2 py-1 rounded text-xs ${cls}`}>{status}</span>
+  )
+}
+
+function Row({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col md:flex-row gap-2 md:items-center">
+      <label className="text-sm w-44 text-gray-700">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+function Section({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
   return (
     <div className="bg-[#fafafa] border rounded">
       <button
@@ -614,9 +661,7 @@ function Section({ title, subtitle, open, onToggle, children }: any) {
       >
         <div>
           <div className="font-semibold">{title}</div>
-          {subtitle && (
-            <div className="text-xs text-gray-500">{subtitle}</div>
-          )}
+          {subtitle && <div className="text-xs text-gray-500">{subtitle}</div>}
         </div>
         <span className="text-xl">{open ? '▾' : '▸'}</span>
       </button>
@@ -625,17 +670,26 @@ function Section({ title, subtitle, open, onToggle, children }: any) {
   )
 }
 
-function Th({ children, className = '' }: any) {
+function Th({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <th
-      className={`text-left px-3 py-2 font-semibold ${className}`}
-    >
+    <th className={`text-left px-3 py-2 font-semibold ${className}`}>
       {children}
     </th>
   )
 }
-function Td({ children, className = '' }: any) {
-  return (
-    <td className={`px-3 py-2 ${className}`}>{children}</td>
-  )
+
+function Td({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return <td className={`px-3 py-2 ${className}`}>{children}</td>
 }
