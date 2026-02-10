@@ -16,11 +16,14 @@ export type Offer = {
     | 'finanzen'
     | 'mobilfunk'
     | 'shopping'
+    | 'gratis'
   )[]
   /** Teilnahmebedingungen (aus DB-Spalte `offers.terms`) */
   terms?: string | null
   active?: boolean
 }
+
+export type OfferCategory = Offer['categories'][number]
 
 /** DB-Rohdatensatz aus public.offers */
 export type DbOffer = {
@@ -45,7 +48,7 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   reward: Number(row.reward_amount ?? 0),
   image: row.image_url ?? null,
   affiliateUrl: row.affiliate_url ?? null,
-  categories: row.category ? [row.category as Offer['categories'][number]] : [],
+  categories: row.category ? [row.category as OfferCategory] : [],
   terms: row.terms ?? null,
   active: row.active,
 })
@@ -66,6 +69,7 @@ export async function getActiveOffers(
     .eq('active', true)
     .order('created_at', { ascending: false })
     .limit(limit)
+
   if (error) throw error
   return (data as DbOffer[]).map(mapDbToOffer)
 }
@@ -73,9 +77,7 @@ export async function getActiveOffers(
 /** Aktive Offers nach Kategorien */
 export async function getActiveOffersByCategories(
   supabase: SupabaseClient,
-  categories: Array<
-    'finanzen' | 'kredit' | 'versicherung' | 'vergleiche' | 'mobilfunk' | 'shopping'
-  >,
+  categories: OfferCategory[],
   opts: { limit?: number } = {}
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
@@ -86,6 +88,7 @@ export async function getActiveOffersByCategories(
     .in('category', categories)
     .order('created_at', { ascending: false })
     .limit(limit)
+
   if (error) throw error
   return (data as DbOffer[]).map(mapDbToOffer)
 }
@@ -100,6 +103,7 @@ export async function getOfferById(
     .select(baseSelect)
     .eq('id', id)
     .maybeSingle()
+
   if (error) throw error
   return data ? mapDbToOffer(data as DbOffer) : null
 }
@@ -131,8 +135,8 @@ function buildSubId(parts: SubIdParts): string {
 /** Param-Name je Netzwerk */
 function detectSubIdParam(hostname: string): 'clickref' | 'subid' | 'smc1' {
   const h = hostname.toLowerCase()
-  if (h.includes('awin1.com')) return 'clickref'                 // AWIN
-  if (h.includes('financeads.net')) return 'subid'               // financeAds
+  if (h.includes('awin1.com')) return 'clickref' // AWIN
+  if (h.includes('financeads.net')) return 'subid' // financeAds
   if (h.includes('belboon') || h.includes('janus.r.jakuli.com')) return 'smc1' // belboon
   return 'subid' // Fallback
 }
