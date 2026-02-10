@@ -17,14 +17,12 @@ export default function Footer() {
       } = await supabase.auth.getUser()
 
       if (!isMounted) return
-
       setLoggedIn(!!user)
       setLoadingAuth(false)
     }
 
     checkUser()
 
-    // Login/Logout mitbekommen
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!isMounted) return
