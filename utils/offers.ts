@@ -1,7 +1,9 @@
-// utils/offers.ts
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/** App-internes Offer-Model */
+/* ===========================
+   Offer Types
+   =========================== */
+
 export type Offer = {
   id: string
   name: string
@@ -18,164 +20,95 @@ export type Offer = {
     | 'shopping'
     | 'gratis'
   )[]
-  /** Teilnahmebedingungen (aus DB-Spalte `offers.terms`) */
   terms?: string | null
   active?: boolean
 }
 
-export type OfferCategory = Offer['categories'][number]
-
-/** DB-Rohdatensatz aus public.offers */
-export type DbOffer = {
+type DbOffer = {
   id: string
-  title: string
+  title: string | null
   description: string | null
   reward_amount: number | null
-  advertiser_id: string | null
-  active: boolean
+  image_url: string | null
+  affiliate_url: string | null
+  active: boolean | null
   category: string | null
-  image_url?: string | null
-  affiliate_url?: string | null
-  created_at: string
-  terms?: string | null
+  terms: string | null
+  created_at: string | null
 }
 
-/** DB -> App Mapping */
-const mapDbToOffer = (row: DbOffer): Offer => ({
-  id: row.id,
-  name: row.title,
-  description: row.description ?? '',
-  reward: Number(row.reward_amount ?? 0),
-  image: row.image_url ?? null,
-  affiliateUrl: row.affiliate_url ?? null,
-  categories: row.category ? [row.category as OfferCategory] : [],
-  terms: row.terms ?? null,
-  active: row.active,
-})
+/* ===========================
+   Mapper
+   =========================== */
 
-/** Basis-Select */
-const baseSelect =
-  'id, title, description, reward_amount, advertiser_id, active, category, image_url, affiliate_url, created_at, terms'
+function mapOffer(r: DbOffer): Offer {
+  const cat = (r.category ?? '') as Offer['categories'][number] | ''
 
-/** Alle aktiven Offers (optional limitiert) */
+  return {
+    id: r.id,
+    name: r.title ?? 'Angebot',
+    description: r.description ?? '',
+    reward: Number(r.reward_amount ?? 0),
+    image: r.image_url ?? null,
+    affiliateUrl: r.affiliate_url ?? null,
+    categories: cat ? [cat] : [],
+    terms: r.terms ?? null,
+    active: Boolean(r.active),
+  }
+}
+
+/* ===========================
+   Fetch: Alle aktiven Offers
+   =========================== */
+
 export async function getActiveOffers(
   supabase: SupabaseClient,
-  opts: { limit?: number } = {}
+  opts?: { limit?: number; category?: Offer['categories'][number] }
 ): Promise<Offer[]> {
-  const { limit = 100 } = opts
-  const { data, error } = await supabase
+  const limit = opts?.limit ?? 200
+
+  let q = supabase
     .from('offers')
-    .select(baseSelect)
+    .select(
+      'id,title,description,reward_amount,image_url,affiliate_url,active,category,terms,created_at'
+    )
     .eq('active', true)
     .order('created_at', { ascending: false })
     .limit(limit)
 
+  if (opts?.category) {
+    q = q.eq('category', opts.category)
+  }
+
+  const { data, error } = await q
+
   if (error) throw error
-  return (data as DbOffer[]).map(mapDbToOffer)
+
+  return (data ?? []).map(mapOffer)
 }
 
-/** Aktive Offers nach Kategorien */
+/* ===========================
+   Fetch: Mehrere Kategorien
+   =========================== */
+
 export async function getActiveOffersByCategories(
   supabase: SupabaseClient,
-  categories: OfferCategory[],
-  opts: { limit?: number } = {}
+  categories: Offer['categories'][number][],
+  opts?: { limit?: number }
 ): Promise<Offer[]> {
-  const { limit = 100 } = opts
+  const limit = opts?.limit ?? 200
+
   const { data, error } = await supabase
     .from('offers')
-    .select(baseSelect)
+    .select(
+      'id,title,description,reward_amount,image_url,affiliate_url,active,category,terms,created_at'
+    )
     .eq('active', true)
     .in('category', categories)
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) throw error
-  return (data as DbOffer[]).map(mapDbToOffer)
-}
 
-/** Einzelnes Offer per ID */
-export async function getOfferById(
-  supabase: SupabaseClient,
-  id: string
-): Promise<Offer | null> {
-  const { data, error } = await supabase
-    .from('offers')
-    .select(baseSelect)
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapDbToOffer(data as DbOffer) : null
-}
-
-/* ===========================
-   Affiliate-URL-Helfer
-   =========================== */
-
-type SubIdParts = {
-  userId: string
-  offerId: string
-  influencerId?: string | null
-  /** Optional: Admin-SubID (profiles.partner_subid) – hat Vorrang */
-  subId?: string | null
-  /** Optional: Click-Token (falls vorhanden) */
-  clickToken?: string | null
-}
-
-/** Baut den SubID-Token: subId > clickToken > user|offer|influencer */
-function buildSubId(parts: SubIdParts): string {
-  const s = (parts.subId || '').trim()
-  if (s.length > 0) return s
-  const c = (parts.clickToken || '').trim()
-  if (c.length > 0) return c
-  const infl = parts.influencerId ?? 'none'
-  return `${parts.userId}|${parts.offerId}|${infl}`
-}
-
-/** Param-Name je Netzwerk */
-function detectSubIdParam(hostname: string): 'clickref' | 'subid' | 'smc1' {
-  const h = hostname.toLowerCase()
-  if (h.includes('awin1.com')) return 'clickref' // AWIN
-  if (h.includes('financeads.net')) return 'subid' // financeAds
-  if (h.includes('belboon') || h.includes('janus.r.jakuli.com')) return 'smc1' // belboon
-  return 'subid' // Fallback
-}
-
-/** Baut die Affiliate-URL mit SubID & optional influencer ref */
-export function buildAffiliateUrl(
-  baseUrl: string | null | undefined,
-  parts: SubIdParts
-): string | null {
-  if (!baseUrl) return null
-  try {
-    const u = new URL(baseUrl)
-
-    // 1) SubID setzen (netzwerkabhängiger Param)
-    const key = detectSubIdParam(u.hostname)
-    const token = buildSubId(parts)
-    u.searchParams.set(key, token)
-
-    // 2) (Optional) Influencer separat mitgeben – falls euer Netzwerk 'ref' o.ä. nutzt
-    if (parts.influencerId) {
-      // Param ggf. anpassen (ref / aff_id / publisherId ...)
-      u.searchParams.set('ref', parts.influencerId)
-    }
-
-    // 3) Immer nützliche Standard-Parameter (internes Debugging)
-    u.searchParams.set('uid', parts.userId)
-    u.searchParams.set('oid', parts.offerId)
-
-    return u.toString()
-  } catch {
-    return baseUrl ?? null
-  }
-}
-
-/** Legacy-Wrapper (Kompatibilität) */
-export function buildAffiliateUrlLegacy(
-  baseUrl: string | null | undefined,
-  userId: string,
-  offerId: string
-): string | null {
-  return buildAffiliateUrl(baseUrl, { userId, offerId })
+  return (data ?? []).map(mapOffer)
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import KategorieNavigation from '../navigation/page'
+import KategorieNavigation from '../components/KategorieNavigation'
 import DealCard from '../components/DealCard'
 import OffersGrid from '../components/OffersGrid'
 import { supabase } from '@/utils/supabaseClient'

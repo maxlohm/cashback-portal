@@ -1,6 +1,7 @@
+// app/partner-dashboard/PartnerDashboardClient.tsx
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import {
   LineChart,
@@ -43,8 +44,7 @@ type SeriesPoint = { d: string; amount: number }
 type Offer = { id: string; title: string }
 
 const fmtEUR = (n: number) => `${n.toFixed(2)} €`
-const fmtPct = (r: number | null) =>
-  r == null ? '—' : `${Math.round(r * 100)} %`
+const fmtPct = (r: number | null) => (r == null ? '—' : `${Math.round(r * 100)} %`)
 
 const monthKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -64,14 +64,20 @@ export default function PartnerDashboardClient() {
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
   const [userId, setUserId] = useState<string | null>(null)
+
+  // IMPORTANT: canonical influencer id for links = partners.id
+  const [partnerId, setPartnerId] = useState<string | null>(null)
+
   const [commissionRate, setCommissionRate] = useState<number | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const [openPayout, setOpenPayout] = useState(true)
   const [openLeads, setOpenLeads] = useState(true)
   const [openPayouts, setOpenPayouts] = useState(false)
   const [openLinks, setOpenLinks] = useState(true)
+
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
 
   // Site-URL robust bestimmen
@@ -94,27 +100,28 @@ export default function PartnerDashboardClient() {
     return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
   }, [month, customFrom, customTo])
 
-  /** Initial load: User + Commission + Offers */
+  /** Initial load: User + PartnerId + Commission + Offers */
   useEffect(() => {
     ;(async () => {
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id ?? null
       setUserId(uid)
 
-      // Commission Rate laden (partners.id == auth.uid()).
-      // Falls du es in profiles hältst, ersetze "partners" durch "profiles".
+      // PartnerId + Commission Rate laden:
+      // partners.user_id == auth.uid(), aber LINKS brauchen partners.id (canonical)
       if (uid) {
-        const { data: p, error: pErr } = await supabase
+        const { data: partner, error: pErr } = await supabase
           .from('partners')
-          .select('commission_rate')
-          .eq('id', uid)
+          .select('id, commission_rate')
+          .eq('user_id', uid)
           .maybeSingle()
 
-        if (!pErr) {
-          const r = (p as any)?.commission_rate
-          setCommissionRate(r == null ? null : Number(r))
-        } else {
+        if (pErr) {
           console.error(pErr)
+        } else {
+          setPartnerId((partner as any)?.id ?? null)
+          const r = (partner as any)?.commission_rate
+          setCommissionRate(r == null ? null : Number(r))
         }
       }
 
@@ -220,7 +227,10 @@ export default function PartnerDashboardClient() {
   }, [leads])
 
   const hasOpenRequest = useMemo(
-    () => redemptions.some(r => ['pending', 'approved', 'processing'].includes(r.status)),
+    () =>
+      redemptions.some(r =>
+        ['pending', 'approved', 'processing'].includes(r.status),
+      ),
     [redemptions],
   )
 
@@ -232,9 +242,10 @@ export default function PartnerDashboardClient() {
     )
   }
 
-  const landingLink = userId ? `${siteUrl}/?ref=${userId}` : ''
+  // IMPORTANT: Links müssen partners.id verwenden (nicht auth.uid())
+  const landingLink = partnerId ? `${siteUrl}/?ref=${partnerId}` : ''
   const dealLink = (offerId: string | null) =>
-    userId && offerId ? `${siteUrl}/r/${offerId}?ref=${userId}` : ''
+    partnerId && offerId ? `${siteUrl}/r/${offerId}?ref=${partnerId}` : ''
 
   const copy = async (text: string) => {
     if (!text) return
@@ -284,7 +295,7 @@ export default function PartnerDashboardClient() {
         onToggle={() => setOpenLinks(v => !v)}
       >
         <div className="flex flex-col gap-3">
-          <Row label="Landing-Link">
+          <Row label="Landing-Link (alle Deals)">
             <input
               className="flex-1 border rounded px-3 py-2 text-sm bg-white"
               readOnly
@@ -299,7 +310,7 @@ export default function PartnerDashboardClient() {
             </button>
           </Row>
 
-          <Row label="Deal-Link">
+          <Row label="Deal-Link (direkt)">
             <select
               className="border rounded px-2 py-2 text-sm bg-white"
               value={selectedOfferId ?? ''}
@@ -330,6 +341,14 @@ export default function PartnerDashboardClient() {
           <p className="text-xs text-gray-500">
             Netzwerk-Mapping: FinanceAds=subid, AWIN=clickref, Belboon=smc1.
           </p>
+
+          {/* Debug-Hinweis optional */}
+          {!partnerId && userId && (
+            <p className="text-xs text-amber-700 bg-amber-50 px-2 py-2 rounded">
+              Hinweis: Für diesen Account wurde kein Partner-Profil gefunden (partners.user_id = auth.uid()).
+              Links können erst generiert werden, wenn der User als Partner/Influencer in <code>partners</code> existiert.
+            </p>
+          )}
         </div>
       </Section>
 
@@ -340,10 +359,7 @@ export default function PartnerDashboardClient() {
         <Kpi title="Einnahmen (Zeitraum)" value={fmtEUR(kpis.sumPeriod)} />
         <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
         <Kpi title="Provision" value={fmtPct(commissionRate)} sub="Dein Anteil" />
-        <Kpi
-          title="Einnahmen gesamt"
-          value={fmtEUR(stats?.total_earnings ?? 0)}
-        />
+        <Kpi title="Einnahmen gesamt" value={fmtEUR(stats?.total_earnings ?? 0)} />
       </div>
 
       {/* Status + Zeitraum Filter */}
@@ -360,10 +376,10 @@ export default function PartnerDashboardClient() {
               {s === 'all'
                 ? 'Alle'
                 : s === 'open'
-                ? 'Offen'
-                : s === 'confirmed'
-                ? 'Bestätigt'
-                : 'Auszahlbar'}
+                  ? 'Offen'
+                  : s === 'confirmed'
+                    ? 'Bestätigt'
+                    : 'Auszahlbar'}
             </button>
           ))}
         </div>
@@ -489,7 +505,12 @@ export default function PartnerDashboardClient() {
       </Section>
 
       {/* Leads */}
-      <Section title="Leads" subtitle="Deine Leads im Zeitraum" open={openLeads} onToggle={() => setOpenLeads(v => !v)}>
+      <Section
+        title="Leads"
+        subtitle="Deine Leads im Zeitraum"
+        open={openLeads}
+        onToggle={() => setOpenLeads(v => !v)}
+      >
         <div className="overflow-auto bg-white border rounded">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
@@ -515,10 +536,10 @@ export default function PartnerDashboardClient() {
                 const status = l.influencer_paid
                   ? 'abgerechnet'
                   : l.payout_ready
-                  ? 'auszahlbar'
-                  : l.confirmed
-                  ? 'bestätigt'
-                  : 'offen'
+                    ? 'auszahlbar'
+                    : l.confirmed
+                      ? 'bestätigt'
+                      : 'offen'
 
                 return (
                   <tr key={l.id} className="border-t">
@@ -581,12 +602,8 @@ export default function PartnerDashboardClient() {
       </Section>
 
       {/* Footer states */}
-      {loading && (
-        <div className="text-sm text-gray-500">Lade Daten…</div>
-      )}
-      {error && (
-        <div className="text-sm text-red-600">Fehler: {error}</div>
-      )}
+      {loading && <div className="text-sm text-gray-500">Lade Daten…</div>}
+      {error && <div className="text-sm text-red-600">Fehler: {error}</div>}
     </div>
   )
 }
@@ -615,23 +632,15 @@ function StatusPill({ status }: { status: string }) {
     status === 'auszahlbar'
       ? 'bg-green-100 text-green-700'
       : status === 'bestätigt'
-      ? 'bg-blue-100 text-blue-700'
-      : status === 'abgerechnet'
-      ? 'bg-purple-100 text-purple-700'
-      : 'bg-gray-100 text-gray-700'
+        ? 'bg-blue-100 text-blue-700'
+        : status === 'abgerechnet'
+          ? 'bg-purple-100 text-purple-700'
+          : 'bg-gray-100 text-gray-700'
 
-  return (
-    <span className={`px-2 py-1 rounded text-xs ${cls}`}>{status}</span>
-  )
+  return <span className={`px-2 py-1 rounded text-xs ${cls}`}>{status}</span>
 }
 
-function Row({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col md:flex-row gap-2 md:items-center">
       <label className="text-sm w-44 text-gray-700">{label}</label>

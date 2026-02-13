@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import KategorieNavigation from '../navigation/page'
+
+import KategorieNavigation from '../components/KategorieNavigation'
 import DealCard from '../components/DealCard'
 import OffersGrid from '../components/OffersGrid'
-import { supabase } from '@/utils/supabaseClient'
-import { getActiveOffersByCategories, type Offer } from '@/utils/offers'
+
+import { supabase } from '../../utils/supabaseClient'
+import { getActiveOffersByCategories, type Offer } from '../../utils/offers'
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<Offer[]>([])
@@ -14,16 +16,32 @@ export default function ShoppingPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    (async () => {
+    let alive = true
+
+    ;(async () => {
       try {
-        const offers = await getActiveOffersByCategories(supabase, ['shopping'])
+        setLoading(true)
+        setError(null)
+
+        const offers = await getActiveOffersByCategories(
+          supabase,
+          ['shopping']
+        )
+
+        if (!alive) return
         setItems(offers)
       } catch (e: any) {
+        if (!alive) return
         setError(e?.message ?? 'Fehler beim Laden')
       } finally {
+        if (!alive) return
         setLoading(false)
       }
     })()
+
+    return () => {
+      alive = false
+    }
   }, [])
 
   return (
@@ -40,10 +58,16 @@ export default function ShoppingPage() {
       <KategorieNavigation />
 
       <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        {loading && <div className="text-sm text-gray-500">Lade Angebote…</div>}
-        {!loading && error && (
-          <div className="text-sm text-red-600">Fehler: {error}</div>
+        {loading && (
+          <div className="text-sm text-gray-500">Lade Angebote…</div>
         )}
+
+        {!loading && error && (
+          <div className="text-sm text-red-600">
+            Fehler: {error}
+          </div>
+        )}
+
         {!loading && !error && (
           <OffersGrid>
             {items.map((offer) => (
@@ -57,9 +81,10 @@ export default function ShoppingPage() {
                 url={`/angebot/${offer.id}`}
               />
             ))}
+
             {items.length === 0 && (
               <div className="col-span-full text-sm text-gray-500 text-center">
-                Aktuell keine Shopping‑Angebote verfügbar.
+                Aktuell keine Shopping-Angebote verfügbar.
               </div>
             )}
           </OffersGrid>
