@@ -112,3 +112,25 @@ export async function getActiveOffersByCategories(
 
   return (data ?? []).map(mapOffer)
 }
+
+/* ===========================
+   Fetch: Offer by ID
+   =========================== */
+
+export async function getOfferById(
+  supabase: SupabaseClient,
+  id: string
+): Promise<Offer | null> {
+  const { data, error } = await supabase
+    .from('offers')
+    .select(
+      'id,title,description,reward_amount,image_url,affiliate_url,active,category,terms,created_at'
+    )
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  return mapOffer(data as DbOffer)
+}
