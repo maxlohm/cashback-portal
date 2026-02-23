@@ -3,14 +3,28 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 
-import KategorieNavigation from './components/KategorieNavigation'
-import DealCard from './components/DealCard'
-import OffersGrid from './components/OffersGrid'
+import KategorieNavigation from './KategorieNavigation'
+import DealCard from './DealCard'
+import OffersGrid from './OffersGrid'
 
 import { supabase } from '@/utils/supabaseClient'
-import { getActiveOffers, type Offer } from '@/utils/offers'
+import { getActiveOffersByCategories, type Offer, type OfferCategory } from '@/utils/offers'
 
-export default function AlleAngebotePage() {
+type Props = {
+  title: string
+  categories: OfferCategory[]
+  emptyText?: string
+  bannerAlt?: string
+  bannerSrc?: string
+}
+
+export default function CategoryPage({
+  title,
+  categories,
+  emptyText = 'Aktuell keine Angebote verfügbar.',
+  bannerAlt,
+  bannerSrc = '/bannerrichtig.png',
+}: Props) {
   const [items, setItems] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -18,7 +32,10 @@ export default function AlleAngebotePage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const offers = await getActiveOffers(supabase)
+        setLoading(true)
+        setError(null)
+
+        const offers = await getActiveOffersByCategories(supabase, categories)
         setItems(offers)
       } catch (e: any) {
         setError(e?.message ?? 'Fehler beim Laden')
@@ -26,13 +43,13 @@ export default function AlleAngebotePage() {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [categories.join('|')])
 
   return (
     <div>
       <Image
-        src="/bannerrichtig.png"
-        alt="Alle Angebote"
+        src={bannerSrc}
+        alt={bannerAlt ?? title}
         width={1920}
         height={300}
         className="w-full h-auto object-cover"
@@ -66,7 +83,7 @@ export default function AlleAngebotePage() {
 
             {items.length === 0 && (
               <div className="col-span-full text-sm text-gray-500 text-center">
-                Aktuell keine Angebote verfügbar.
+                {emptyText}
               </div>
             )}
           </OffersGrid>

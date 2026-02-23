@@ -40,12 +40,6 @@ export default function ImpressumPage() {
       </p>
 
       <p className="mt-6">
-        <strong>Umsatzsteuer-ID:</strong><br />
-        Eine Umsatzsteuer-Identifikationsnummer gemäß § 27a Umsatzsteuergesetz
-        wurde noch nicht vergeben.
-      </p>
-
-      <p className="mt-6">
         <strong>Redaktionell verantwortlich:</strong><br />
         Felix Maximilian Lohmann<br />
         Grindelallee 44<br />

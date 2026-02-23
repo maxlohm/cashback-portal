@@ -50,12 +50,12 @@ export default function PartnerPage() {
         </div>
 
         <div className="text-center">
-          <Link
-            href="/support?type=Kooperationsanfrage"
-            className="inline-block bg-yellow-500 text-black font-semibold py-3 px-6 rounded-xl hover:bg-yellow-600 transition"
-          >
-            Jetzt kostenlos Partner werden
-          </Link>
+       <Link
+  href="/partner/bewerben"
+  className="inline-block bg-yellow-500 text-black font-semibold py-3 px-6 rounded-xl hover:bg-yellow-600 transition"
+>
+  Jetzt kostenlos Partner werden
+</Link>
         </div>
       </section>
     </div>

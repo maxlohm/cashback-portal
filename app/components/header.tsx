@@ -1,4 +1,3 @@
-// app/components/header.tsx (oder wo dein Header liegt)
 'use client'
 
 import Link from 'next/link'
@@ -24,17 +23,16 @@ export default function Header() {
       if (user) {
         setLoggedIn(true)
 
-        // Partner-Check über user_id
+        // Partner-Check
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle()
 
-        // Admin-Check über RPC
+        // Admin-Check
         const { data: isAdminFlag } = await supabase.rpc('is_admin')
 
-        // Admin darf auch Partner-Dashboard sehen
         setIsPartner(!!partner || isAdminFlag === true)
         setIsAdmin(isAdminFlag === true)
       }
@@ -75,6 +73,7 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
+
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
                 Angebote
               </Link>
@@ -87,6 +86,7 @@ export default function Header() {
                   >
                     Mein Profil
                   </Link>
+
                   <Link
                     href="/dashboard"
                     className="block px-4 py-2 hover:bg-gray-100"
@@ -105,7 +105,7 @@ export default function Header() {
 
                   {isAdmin && (
                     <>
-                      <div className="px-4 pt-2 text-xs text-gray-500">
+                      <div className="px-4 pt-2 text-xs text-gray-500 border-t mt-2">
                         Admin
                       </div>
 
@@ -116,7 +116,13 @@ export default function Header() {
                         Admin-Dashboard
                       </Link>
 
-                      {/* NEU: Influencer-Abrechnung */}
+                      <Link
+                        href="/admin/partner-applications"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
+                        Partner-Bewerbungen
+                      </Link>
+
                       <Link
                         href="/admin/influencer-payout"
                         className="block px-4 py-2 hover:bg-gray-100"
@@ -138,6 +144,7 @@ export default function Header() {
               <Link href="/support" className="block px-4 py-2 hover:bg-gray-100">
                 Support
               </Link>
+
               <Link href="/faq" className="block px-4 py-2 hover:bg-gray-100">
                 FAQ
               </Link>
@@ -152,15 +159,19 @@ export default function Header() {
                   </button>
                 ) : (
                   <>
-                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">
+                    <Link
+                      href="/login"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
                       Login
                     </Link>
-                      <Link
-                        href="/register"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Registrieren
-                      </Link>
+
+                    <Link
+                      href="/register"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
+                      Registrieren
+                    </Link>
                   </>
                 ))}
             </div>
@@ -170,6 +181,7 @@ export default function Header() {
 
       {/* Header-Inhalte */}
       <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
+
         {/* Logo */}
         <div className="w-36 sm:w-40 md:w-44">
           <Link href="/">
@@ -198,7 +210,7 @@ export default function Header() {
           />
         </div>
 
-        {/* Maus – Mobil ausgeblendet */}
+        {/* Maus */}
         <div className="hidden sm:block w-36 md:w-44 -mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"
