@@ -10,13 +10,10 @@ export const dynamic = 'force-dynamic'
 const UUIDV4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { offerId: string } },
-) {
+export async function GET(req: NextRequest, context: any) {
   const supabase = createRouteHandlerClient({ cookies: nextCookies })
 
-  const offerId = params?.offerId
+  const offerId = (context?.params?.offerId as string | undefined) ?? undefined
   if (!offerId) return NextResponse.redirect(new URL('/', req.url), 302)
 
   const url = new URL(req.url)
