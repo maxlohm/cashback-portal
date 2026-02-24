@@ -257,7 +257,7 @@ export default function PartnerDashboardClient() {
   // ✅ Promo-Links korrekt (canonical ref = partners.id)
   const landingLink = partnerId ? `${siteUrl}/?ref=${partnerId}` : ''
   const dealLink = (offerId: string | null) =>
-  partnerId && offerId ? `${siteUrl}/r/${offerId}?ref=${partnerId}` : ''
+  partnerId && offerId ? `${siteUrl}/angebot/${offerId}?ref=${partnerId}` : ''
 
   const last12 = useMemo(() => {
     const arr: string[] = []
