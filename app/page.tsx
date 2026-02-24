@@ -30,14 +30,16 @@ export default function AlleAngebotePage() {
 
   return (
     <div>
-      <Image
-        src="/bannerrichtig.png"
-        alt="Alle Angebote"
-        width={1920}
-        height={300}
-        className="w-full h-auto object-cover"
-        priority
-      />
+      {/* ✅ Mobile-optimiertes Banner: klein auf Mobile, groß auf Desktop */}
+      <div className="relative w-full h-40 md:h-[300px]">
+        <Image
+          src="/bannerrichtig.png"
+          alt="Alle Angebote"
+          fill
+          className="object-cover"
+          priority
+        />
+      </div>
 
       <KategorieNavigation />
 
@@ -50,7 +52,7 @@ export default function AlleAngebotePage() {
 
         {!loading && !error && (
           <OffersGrid>
-            {items.map((offer) => (
+            {items.map(offer => (
               <DealCard
                 key={offer.id}
                 id={offer.id}

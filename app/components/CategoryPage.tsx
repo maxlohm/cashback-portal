@@ -8,7 +8,11 @@ import DealCard from './DealCard'
 import OffersGrid from './OffersGrid'
 
 import { supabase } from '@/utils/supabaseClient'
-import { getActiveOffersByCategories, type Offer, type OfferCategory } from '@/utils/offers'
+import {
+  getActiveOffersByCategories,
+  type Offer,
+  type OfferCategory,
+} from '@/utils/offers'
 
 type Props = {
   title: string
@@ -47,14 +51,16 @@ export default function CategoryPage({
 
   return (
     <div>
-      <Image
-        src={bannerSrc}
-        alt={bannerAlt ?? title}
-        width={1920}
-        height={300}
-        className="w-full h-auto object-cover"
-        priority
-      />
+      {/* ✅ Mobile-optimiertes Banner: klein auf Mobile, groß auf Desktop */}
+      <div className="relative w-full h-40 md:h-[300px]">
+        <Image
+          src={bannerSrc}
+          alt={bannerAlt ?? title}
+          fill
+          className="object-cover"
+          priority
+        />
+      </div>
 
       <KategorieNavigation />
 
@@ -67,7 +73,7 @@ export default function CategoryPage({
 
         {!loading && !error && (
           <OffersGrid>
-            {items.map((offer) => (
+            {items.map(offer => (
               <DealCard
                 key={offer.id}
                 id={offer.id}
