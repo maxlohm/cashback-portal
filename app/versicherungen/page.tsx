@@ -6,6 +6,7 @@ export default function VersicherungenPage() {
       title="Versicherungen"
       categories={['versicherung']}
       emptyText="Aktuell keine Versicherungs-Angebote verfügbar."
+      bannerSrc="/bannerrichtig.png"
       bannerAlt="Versicherungen Banner"
     />
   )

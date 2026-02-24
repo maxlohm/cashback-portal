@@ -6,6 +6,7 @@ export default function ShoppingPage() {
       title="Shopping"
       categories={['shopping']}
       emptyText="Aktuell keine Shopping-Angebote verfügbar."
+      bannerSrc="/bannerrichtig.png"
       bannerAlt="Shopping Banner"
     />
   )

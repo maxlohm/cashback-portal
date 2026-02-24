@@ -6,6 +6,7 @@ export default function GratisPage() {
       title="Gratis"
       categories={['gratis']}
       emptyText="Aktuell keine Gratis-Angebote verfügbar."
+      bannerSrc="/bannerrichtig.png"
       bannerAlt="Gratis Banner"
     />
   )

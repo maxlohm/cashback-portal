@@ -30,8 +30,8 @@ export default function AlleAngebotePage() {
 
   return (
     <div>
-      {/* ✅ Mobile-optimiertes Banner: klein auf Mobile, groß auf Desktop */}
-      <div className="relative w-full h-40 md:h-[300px]">
+      {/* ✅ Banner NUR Desktop (Mobile komplett ausblenden) */}
+      <div className="hidden md:block relative w-full h-[300px]">
         <Image
           src="/bannerrichtig.png"
           alt="Alle Angebote"

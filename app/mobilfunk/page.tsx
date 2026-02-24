@@ -6,6 +6,7 @@ export default function MobilfunkPage() {
       title="Mobilfunk"
       categories={['mobilfunk']}
       emptyText="Aktuell keine Mobilfunk-Angebote verfügbar."
+      bannerSrc="/bannerrichtig.png"
       bannerAlt="Mobilfunk Banner"
     />
   )
