@@ -2,25 +2,43 @@
 
 import { useState } from 'react'
 import { supabase } from '@/utils/supabaseClient'
-import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 export default function RegisterPage() {
-  const router = useRouter()
+  const sp = useSearchParams()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
   const [consent, setConsent] = useState(false)
   const [policyConsent, setPolicyConsent] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const validatePassword = (pw: string) => /^(?=.*[A-Z])(?=.*\d).{8,}$/.test(pw)
 
+  const getSafeNext = () => {
+    const raw = sp?.get('next') ?? '/'
+    let next = raw
+    try {
+      next = decodeURIComponent(raw)
+    } catch {
+      next = raw
+    }
+    if (!next.startsWith('/')) return '/'
+    if (next.startsWith('//')) return '/'
+    if (next.toLowerCase().includes('%2f%2f')) return '/'
+    return next
+  }
+
   const handleRegister = async () => {
-    setError(null); setSuccess(null)
+    setError(null)
+    setSuccess(null)
 
     if (!username || !firstName || !lastName || !email || !password) {
       setError('Bitte fülle alle Felder aus.')
@@ -41,7 +59,12 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      // Kein Pre-Select auf profiles (RLS / Spaltenproblem). E-Mail-Unique prüft Supabase Auth.
+      const safeNext = getSafeNext()
+
+      // Wichtig: Bestätigungslink soll wieder auf DEINE Domain zurückführen
+      // und danach direkt auf /login?next=...
+      const redirectTo = `${location.origin}/login?next=${encodeURIComponent(safeNext)}`
+
       const { error: signupError } = await supabase.auth.signUp({
         email,
         password,
@@ -51,7 +74,7 @@ export default function RegisterPage() {
             firstName,
             lastName,
           },
-          // Falls du Magic Link bevorzugst: emailRedirectTo: `${location.origin}/auth/callback`
+          emailRedirectTo: redirectTo,
         },
       })
 
@@ -65,9 +88,6 @@ export default function RegisterPage() {
         return
       }
 
-      // Hinweis: Nach signUp gibt es meist keine aktive Session (E-Mail-Bestätigung erforderlich).
-      // Partner-Attribution bitte nach erstem Login vornehmen (siehe Login-Seite).
-
       setSuccess('✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail über den Link im Posteingang.')
     } catch {
       setError('Unerwarteter Fehler bei der Registrierung.')
@@ -75,6 +95,11 @@ export default function RegisterPage() {
       setLoading(false)
     }
   }
+
+  const nextForLinks = (() => {
+    const n = sp?.get('next')
+    return n ? `?next=${encodeURIComponent(n)}` : ''
+  })()
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7f3e6] text-[#003b5b] px-4 sm:px-6">
@@ -86,42 +111,42 @@ export default function RegisterPage() {
           type="text"
           placeholder="Benutzername *"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={e => setUsername(e.target.value)}
         />
         <input
           className="w-full border border-gray-300 bg-white px-4 py-2 rounded mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
           type="text"
           placeholder="Vorname *"
           value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
+          onChange={e => setFirstName(e.target.value)}
         />
         <input
           className="w-full border border-gray-300 bg-white px-4 py-2 rounded mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
           type="text"
           placeholder="Nachname *"
           value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
+          onChange={e => setLastName(e.target.value)}
         />
         <input
           className="w-full border border-gray-300 bg-white px-4 py-2 rounded mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
           type="email"
           placeholder="E-Mail *"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
         />
         <input
           className="w-full border border-gray-300 bg-white px-4 py-2 rounded mb-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#003b5b]"
           type="password"
           placeholder="Passwort *"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={e => setPassword(e.target.value)}
         />
 
         <label className="flex items-start text-sm mb-4">
           <input
             type="checkbox"
             checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
+            onChange={e => setConsent(e.target.checked)}
             className="mt-1 mr-2 accent-[#003b5b]"
           />
           <span>
@@ -136,11 +161,12 @@ export default function RegisterPage() {
           <input
             type="checkbox"
             checked={policyConsent}
-            onChange={(e) => setPolicyConsent(e.target.checked)}
+            onChange={e => setPolicyConsent(e.target.checked)}
             className="mt-1 mr-2 accent-[#003b5b]"
           />
           <span>
-            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei Verstoß können Accounts gesperrt und Prämien storniert werden.
+            <strong className="text-orange-700">⚠️ Achtung:</strong> Mehrere Konten pro Person sind nicht erlaubt. Bei
+            Verstoß können Accounts gesperrt und Prämien storniert werden.
           </span>
         </label>
 
@@ -157,7 +183,7 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-sm text-center">
           Schon registriert?{' '}
-          <a href="/login" className="text-blue-600 hover:underline">
+          <a href={`/login${nextForLinks}`} className="text-blue-600 hover:underline">
             Zum Login
           </a>
         </p>

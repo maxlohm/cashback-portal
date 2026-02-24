@@ -3,9 +3,9 @@
 import { cookies } from 'next/headers'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import Image from 'next/image'
-import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import OfferReviewsClient from './OfferReviewsClient'
+import GoToOfferButton from './GoToOfferButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,8 +16,15 @@ export default async function OfferPage(props: any) {
       : props?.params
   const id = p?.id as string | undefined
 
-  if (!id)
-    return <div className="max-w-3xl mx-auto p-6">Ungültige URL.</div>
+  const sp =
+    props?.searchParams && typeof props.searchParams.then === 'function'
+      ? await props.searchParams
+      : props?.searchParams
+
+  // ref kommt aus URL: /angebot/<id>?ref=<partners.id>
+  const refId = (sp?.ref as string | undefined) ?? null
+
+  if (!id) return <div className="max-w-3xl mx-auto p-6">Ungültige URL.</div>
 
   const supabase = createServerComponentClient({ cookies })
 
@@ -61,7 +68,6 @@ export default async function OfferPage(props: any) {
 
       <div className="mt-8 space-y-3">
         <h1 className="text-3xl font-semibold text-[#003b5b]">{offer.title}</h1>
-
         <RatingSummary avg={avgRating} count={reviewCount} />
 
         {offer.description && (
@@ -76,13 +82,8 @@ export default async function OfferPage(props: any) {
           Prämie:&nbsp;{fmt(offer.reward_amount ?? 0)}
         </span>
 
-        <Link
-          href={`/r/${offer.id}`}
-          target="_blank"
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-[#ca4b24] px-5 text-white font-medium hover:bg-[#a33d1e] transition"
-        >
-          Zum Angebot
-        </Link>
+        {/* ✅ Wichtig: ref aus /angebot/... wird an /r weitergereicht */}
+        <GoToOfferButton offerId={offer.id} refId={refId} />
       </div>
 
       {/* Pflicht-Hinweise */}
@@ -108,10 +109,9 @@ export default async function OfferPage(props: any) {
 
         <div className="mt-4 rounded-2xl border bg-white p-5">
           {typeof terms === 'string' && terms.trim().length > 0 ? (
-           <div className="prose prose-sm max-w-none text-gray-700">
-  <ReactMarkdown>{terms}</ReactMarkdown>
-</div>
-
+            <div className="prose prose-sm max-w-none text-gray-700">
+              <ReactMarkdown>{terms}</ReactMarkdown>
+            </div>
           ) : (
             <div className="space-y-2 text-gray-700">
               <p>Die Teilnahmebedingungen folgen.</p>
@@ -157,13 +157,13 @@ function fmt(n: number) {
   }).format(n || 0)
 }
 
-function RatingSummary({ avg, count }) {
+function RatingSummary({ avg, count }: { avg: number; count: number }) {
   const rounded = Math.round(avg * 2) / 2
 
   return (
     <div className="flex items-center gap-2 text-sm text-gray-700">
       <div className="flex text-base">
-        {[1, 2, 3, 4, 5].map((i) => (
+        {[1, 2, 3, 4, 5].map(i => (
           <span key={i}>{rounded >= i ? '★' : '☆'}</span>
         ))}
       </div>

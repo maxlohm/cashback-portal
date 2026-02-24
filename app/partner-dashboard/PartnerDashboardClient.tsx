@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import {
   LineChart,
@@ -40,10 +40,9 @@ type RedemptionRow = {
 }
 
 type SeriesPoint = { d: string; amount: number }
-
 type Offer = { id: string; title: string }
 
-const fmtEUR = (n: number) => `${n.toFixed(2)} €`
+const fmtEUR = (n: number) => `${Number(n || 0).toFixed(2)} €`
 const monthKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
@@ -61,22 +60,26 @@ export default function PartnerDashboardClient() {
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([])
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
+
+  const [userId, setUserId] = useState<string | null>(null)       // auth.uid
+  const [partnerId, setPartnerId] = useState<string | null>(null) // partners.id (canonical ref)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const [openPayout, setOpenPayout] = useState(true)
   const [openLeads, setOpenLeads] = useState(true)
   const [openPayouts, setOpenPayouts] = useState(false)
   const [openLinks, setOpenLinks] = useState(true)
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
 
-  // Site-URL robust bestimmen
+  // Copy toast
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<any>(null)
+
   const siteUrl = useMemo(() => {
     if (typeof window !== 'undefined') {
-      return (
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin || ''
-      )
+      return process.env.NEXT_PUBLIC_SITE_URL || window.location.origin || ''
     }
     return process.env.NEXT_PUBLIC_SITE_URL || ''
   }, [])
@@ -93,15 +96,54 @@ export default function PartnerDashboardClient() {
     return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
   }, [month, customFrom, customTo])
 
-  /** Initial load: User + Offers */
+  const showToast = (msg: string) => {
+    setToast(msg)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 1200)
+  }
+
+  const copy = async (text: string, label = 'Kopiert') => {
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast(label)
+    } catch {
+      showToast('Kopieren fehlgeschlagen')
+    }
+  }
+
+  /** Initial load: Auth + PartnerId + Offers */
   useEffect(() => {
     ;(async () => {
-      const { data: u } = await supabase.auth.getUser()
-      setUserId(u.user?.id ?? null)
+      setError(null)
 
+      const { data: u } = await supabase.auth.getUser()
+      const uid = u.user?.id ?? null
+      setUserId(uid)
+
+      if (!uid) {
+        setPartnerId(null)
+        return
+      }
+
+      // ✅ canonical Partner-ID holen: partners.id where partners.user_id = auth.uid()
+      const { data: ptn, error: ptnErr } = await supabase
+        .from('partners')
+        .select('id')
+        .eq('user_id', uid)
+        .maybeSingle()
+
+      if (ptnErr) {
+        console.error(ptnErr)
+        setPartnerId(null)
+      } else {
+        setPartnerId((ptn as any)?.id ?? null)
+      }
+
+      // Offers (für Deal-Link Dropdown)
       const { data: off, error: offErr } = await supabase
         .from('offers')
-        .select('id,title,active')
+        .select('id,title,active,created_at')
         .eq('active', true)
         .order('created_at', { ascending: false })
 
@@ -110,9 +152,9 @@ export default function PartnerDashboardClient() {
         return
       }
 
-      const list: Offer[] = (off ?? []).map(o => ({
+      const list: Offer[] = (off ?? []).map((o: any) => ({
         id: o.id as string,
-        title: (o as any).title as string,
+        title: o.title as string,
       }))
       setOffers(list)
       setSelectedOfferId(list[0]?.id ?? null)
@@ -147,9 +189,9 @@ export default function PartnerDashboardClient() {
       ])
 
       setStats(statsData)
-      setLeads((leadsData ?? []).map(r => ({ ...r })))
+      setLeads((leadsData ?? []).map((r: any) => ({ ...r })))
       setSeries(
-        (tsData ?? []).map(r => ({
+        (tsData ?? []).map((r: any) => ({
           d: r.d as string,
           amount: Number(r.amount || 0),
         })),
@@ -172,37 +214,20 @@ export default function PartnerDashboardClient() {
     const open = leads.filter(x => !x.confirmed).length
     const confirmed = leads.filter(x => x.confirmed).length
 
-    const readyLeads = leads.filter(
-      x => x.payout_ready && !x.influencer_paid
-    )
-
+    const readyLeads = leads.filter(x => x.payout_ready && !x.influencer_paid)
     const ready = readyLeads.length
 
-    const sumReady = readyLeads.reduce(
-      (a, b) => a + Number(b.amount || 0),
-      0
-    )
-
-    const sumPeriod = leads.reduce(
-      (a, b) => a + Number(b.amount || 0),
-      0
-    )
+    const sumReady = readyLeads.reduce((a, b) => a + Number(b.amount || 0), 0)
+    const sumPeriod = leads.reduce((a, b) => a + Number(b.amount || 0), 0)
 
     return { open, confirmed, ready, sumReady, sumPeriod }
   }, [leads])
 
   const topOffers = useMemo(() => {
-    const m = new Map<
-      string,
-      { title: string; sum: number; count: number }
-    >()
+    const m = new Map<string, { title: string; sum: number; count: number }>()
     for (const l of leads) {
       const cur =
-        m.get(l.offer_id) ?? {
-          title: l.offer_title,
-          sum: 0,
-          count: 0,
-        }
+        m.get(l.offer_id) ?? { title: l.offer_title, sum: 0, count: 0 }
       cur.sum += Number(l.amount || 0)
       cur.count += 1
       m.set(l.offer_id, cur)
@@ -221,7 +246,6 @@ export default function PartnerDashboardClient() {
     [redemptions],
   )
 
-  /** Influencer-Auszahlung → Rechnung */
   async function requestPayout() {
     alert(
       'Für Auszahlungen sende uns bitte deine Rechnung über dein offenes Guthaben.\n\n' +
@@ -230,38 +254,50 @@ export default function PartnerDashboardClient() {
     )
   }
 
-  const landingLink = userId ? `${siteUrl}/?ref=${userId}` : ''
+  // ✅ Promo-Links korrekt (canonical ref = partners.id)
+  const landingLink = partnerId ? `${siteUrl}/?ref=${partnerId}` : ''
   const dealLink = (offerId: string | null) =>
-    userId && offerId ? `${siteUrl}/r/${offerId}?ref=${userId}` : ''
-
-  const copy = async (text: string) => {
-    if (!text) return
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      // ignore
-    }
-  }
+  partnerId && offerId ? `${siteUrl}/r/${offerId}?ref=${partnerId}` : ''
 
   const last12 = useMemo(() => {
     const arr: string[] = []
     const d = new Date()
     for (let i = 0; i < 12; i++) {
-      arr.push(
-        monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)),
-      )
+      arr.push(monthKey(new Date(d.getFullYear(), d.getMonth() - i, 1)))
     }
     return arr
   }, [])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast */}
+      <div
+        className={[
+          'fixed left-1/2 top-6 -translate-x-1/2 z-50',
+          'transition-all duration-200',
+          toast
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-2 pointer-events-none',
+        ].join(' ')}
+      >
+        <div className="rounded-xl bg-[#003b5b] text-white text-sm px-4 py-2 shadow-lg">
+          {toast ?? ''}
+        </div>
+      </div>
+
       {/* Promo Links */}
       <Section
         title="Meine Promo-Links"
         open={openLinks}
         onToggle={() => setOpenLinks(v => !v)}
       >
+        {!partnerId && (
+          <div className="mb-4 rounded-xl border bg-white p-4 text-sm text-amber-700">
+            Partner-ID nicht gefunden. Du bist entweder nicht als Partner angelegt
+            oder `partners.user_id` ist nicht gesetzt.
+          </div>
+        )}
+
         <div className="flex flex-col gap-3">
           <div className="flex flex-col md:flex-row gap-2 md:items-center">
             <label className="text-sm w-44">Landing-Link</label>
@@ -271,8 +307,8 @@ export default function PartnerDashboardClient() {
               value={landingLink}
             />
             <button
-              className="px-3 py-2 border rounded bg-white text-sm"
-              onClick={() => copy(landingLink)}
+              className="px-3 py-2 border rounded bg-white text-sm hover:bg-gray-50 active:scale-[0.98] transition disabled:opacity-60"
+              onClick={() => copy(landingLink, 'Landing-Link kopiert')}
               disabled={!landingLink}
             >
               kopieren
@@ -281,10 +317,12 @@ export default function PartnerDashboardClient() {
 
           <div className="flex flex-col md:flex-row gap-2 md:items-center">
             <label className="text-sm w-44">Deal-Link</label>
+
             <select
               className="border rounded px-2 py-2 text-sm bg-white"
               value={selectedOfferId ?? ''}
               onChange={e => setSelectedOfferId(e.target.value)}
+              disabled={offers.length === 0}
             >
               {offers.map(o => (
                 <option key={o.id} value={o.id}>
@@ -292,16 +330,16 @@ export default function PartnerDashboardClient() {
                 </option>
               ))}
             </select>
+
             <input
               className="flex-1 border rounded px-3 py-2 text-sm"
               readOnly
               value={dealLink(selectedOfferId) || ''}
             />
+
             <button
-              className="px-3 py-2 border rounded bg-white text-sm"
-              onClick={() =>
-                copy(dealLink(selectedOfferId) || '')
-              }
+              className="px-3 py-2 border rounded bg-white text-sm hover:bg-gray-50 active:scale-[0.98] transition disabled:opacity-60"
+              onClick={() => copy(dealLink(selectedOfferId) || '', 'Deal-Link kopiert')}
               disabled={!dealLink(selectedOfferId)}
             >
               kopieren
@@ -309,8 +347,8 @@ export default function PartnerDashboardClient() {
           </div>
 
           <p className="text-xs text-gray-500">
-            Deine Sub-ID wird automatisch im Redirect eingefügt
-            (FinanceAds=subid, AWIN=clickref, Belboon=smc1).
+            Tracking passiert beim Klick auf „Zum Angebot“ (Redirect /r).
+            Sub-ID wird dort automatisch eingefügt (FinanceAds=subid, AWIN=clickref, Belboon=smc1).
           </p>
         </div>
       </Section>
@@ -319,18 +357,9 @@ export default function PartnerDashboardClient() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Kpi title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
         <Kpi title="Leads bestätigt" value={kpis.confirmed} />
-        <Kpi
-          title="Einnahmen (Zeitraum)"
-          value={fmtEUR(kpis.sumPeriod)}
-        />
-        <Kpi
-          title="Auszahlbar"
-          value={fmtEUR(kpis.sumReady)}
-        />
-        <Kpi
-          title="Einnahmen gesamt"
-          value={fmtEUR(stats?.total_earnings ?? 0)}
-        />
+        <Kpi title="Einnahmen (Zeitraum)" value={fmtEUR(kpis.sumPeriod)} />
+        <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
+        <Kpi title="Einnahmen gesamt" value={fmtEUR(stats?.total_earnings ?? 0)} />
       </div>
 
       {/* Filter */}
@@ -342,7 +371,7 @@ export default function PartnerDashboardClient() {
             className={`px-3 py-2 rounded border text-sm ${
               statusFilter === s
                 ? 'bg-[#003b5b] text-white'
-                : 'bg-white'
+                : 'bg-white hover:bg-gray-50'
             }`}
           >
             {s === 'all'
@@ -385,7 +414,7 @@ export default function PartnerDashboardClient() {
               onChange={e => setCustomTo(e.target.value)}
             />
             <button
-              className="px-3 py-2 border rounded text-sm bg-white"
+              className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
               onClick={refresh}
             >
               Anwenden
@@ -414,10 +443,7 @@ export default function PartnerDashboardClient() {
         onToggle={() => setOpenPayout(v => !v)}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Kpi
-            title="Auszahlbares Guthaben"
-            value={fmtEUR(kpis.sumReady)}
-          />
+          <Kpi title="Auszahlbares Guthaben" value={fmtEUR(kpis.sumReady)} />
           <div className="flex items-center md:col-span-2 justify-end gap-3">
             {hasOpenRequest && (
               <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
@@ -425,7 +451,7 @@ export default function PartnerDashboardClient() {
               </span>
             )}
             <button
-              className="px-4 py-2 rounded bg-[#003b5b] text-white disabled:opacity-60"
+              className="px-4 py-2 rounded bg-[#003b5b] text-white disabled:opacity-60 hover:opacity-95 active:scale-[0.99] transition"
               onClick={requestPayout}
               disabled={kpis.sumReady <= 0}
             >
@@ -434,32 +460,21 @@ export default function PartnerDashboardClient() {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Hinweis: Influencer erhalten Auszahlungen per Rechnung. Keine
-          Gutscheine – klassischer B2B-Flow.
+          Hinweis: Influencer erhalten Auszahlungen per Rechnung. Keine Gutscheine – klassischer B2B-Flow.
         </p>
       </Section>
 
       {/* Top Offers */}
-      <Section
-        title="Top-Offers (Umsatz im Zeitraum)"
-        open={true}
-        onToggle={() => {}}
-      >
+      <Section title="Top-Offers (Umsatz im Zeitraum)" open={true} onToggle={() => {}}>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {topOffers.length === 0 && (
-            <div className="text-sm text-gray-500">
-              Noch keine Daten.
-            </div>
+            <div className="text-sm text-gray-500">Noch keine Daten.</div>
           )}
           {topOffers.map(t => (
             <div key={t.id} className="bg-white border rounded p-3">
               <div className="text-sm font-medium">{t.title}</div>
-              <div className="text-xs text-gray-500">
-                {t.count} Lead(s)
-              </div>
-              <div className="text-lg font-semibold mt-1">
-                {fmtEUR(t.sum)}
-              </div>
+              <div className="text-xs text-gray-500">{t.count} Lead(s)</div>
+              <div className="text-lg font-semibold mt-1">{fmtEUR(t.sum)}</div>
             </div>
           ))}
         </div>
@@ -485,10 +500,7 @@ export default function PartnerDashboardClient() {
             <tbody>
               {leads.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={4}
-                    className="text-center p-6 text-gray-500"
-                  >
+                  <td colSpan={4} className="text-center p-6 text-gray-500">
                     Keine Leads gefunden.
                   </td>
                 </tr>
@@ -504,11 +516,7 @@ export default function PartnerDashboardClient() {
                   : 'offen'
                 return (
                   <tr key={l.id} className="border-t">
-                    <Td>
-                      {date
-                        ? new Date(date).toLocaleString('de-DE')
-                        : '-'}
-                    </Td>
+                    <Td>{date ? new Date(date).toLocaleString('de-DE') : '-'}</Td>
                     <Td className="font-medium">{l.offer_title}</Td>
                     <Td>
                       <span
@@ -525,9 +533,7 @@ export default function PartnerDashboardClient() {
                         {status}
                       </span>
                     </Td>
-                    <Td className="text-right">
-                      {fmtEUR(Number(l.amount || 0))}
-                    </Td>
+                    <Td className="text-right">{fmtEUR(Number(l.amount || 0))}</Td>
                   </tr>
                 )
               })}
@@ -557,25 +563,18 @@ export default function PartnerDashboardClient() {
             <tbody>
               {redemptions.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-center p-6 text-gray-500"
-                  >
+                  <td colSpan={5} className="text-center p-6 text-gray-500">
                     Noch keine Auszahlungen.
                   </td>
                 </tr>
               )}
               {redemptions.map(r => (
                 <tr key={r.id} className="border-t">
-                  <Td>
-                    {new Date(r.created_at).toLocaleString('de-DE')}
-                  </Td>
+                  <Td>{new Date(r.created_at).toLocaleString('de-DE')}</Td>
                   <Td>{r.status}</Td>
                   <Td>{r.provider ?? '-'}</Td>
                   <Td>{r.sku ?? '-'}</Td>
-                  <Td className="text-right">
-                    {fmtEUR(Number(r.amount))}
-                  </Td>
+                  <Td className="text-right">{fmtEUR(Number(r.amount || 0))}</Td>
                 </tr>
               ))}
             </tbody>
@@ -583,14 +582,8 @@ export default function PartnerDashboardClient() {
         </div>
       </Section>
 
-      {loading && (
-        <div className="text-sm text-gray-500">Lade Daten…</div>
-      )}
-      {error && (
-        <div className="text-sm text-red-600">
-          Fehler: {error}
-        </div>
-      )}
+      {loading && <div className="text-sm text-gray-500">Lade Daten…</div>}
+      {error && <div className="text-sm text-red-600">Fehler: {error}</div>}
     </div>
   )
 }
@@ -614,9 +607,7 @@ function Section({ title, subtitle, open, onToggle, children }: any) {
       >
         <div>
           <div className="font-semibold">{title}</div>
-          {subtitle && (
-            <div className="text-xs text-gray-500">{subtitle}</div>
-          )}
+          {subtitle && <div className="text-xs text-gray-500">{subtitle}</div>}
         </div>
         <span className="text-xl">{open ? '▾' : '▸'}</span>
       </button>
@@ -627,15 +618,12 @@ function Section({ title, subtitle, open, onToggle, children }: any) {
 
 function Th({ children, className = '' }: any) {
   return (
-    <th
-      className={`text-left px-3 py-2 font-semibold ${className}`}
-    >
+    <th className={`text-left px-3 py-2 font-semibold ${className}`}>
       {children}
     </th>
   )
 }
+
 function Td({ children, className = '' }: any) {
-  return (
-    <td className={`px-3 py-2 ${className}`}>{children}</td>
-  )
+  return <td className={`px-3 py-2 ${className}`}>{children}</td>
 }
