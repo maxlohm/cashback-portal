@@ -42,10 +42,12 @@ export default function CategoryPage({
       try {
         setLoading(true)
         setError(null)
+
         const offers = await getActiveOffersByCategories(
           supabase as any,
           categories,
         )
+
         if (!alive) return
         setItems(offers)
       } catch (e: any) {
@@ -64,9 +66,9 @@ export default function CategoryPage({
 
   return (
     <div>
-      {/* ✅ Banner NUR Desktop (Mobile komplett ausblenden) */}
-      {bannerSrc ? (
-        <div className="hidden md:block relative w-full h-[300px]">
+      {/* Banner nur Desktop */}
+      {bannerSrc && (
+        <div className="hidden md:block relative w-full h-[300px] pb-12">
           <Image
             src={bannerSrc}
             alt={bannerAlt}
@@ -75,11 +77,16 @@ export default function CategoryPage({
             priority
           />
         </div>
-      ) : null}
+      )}
 
-      <KategorieNavigation />
+      {/* Navigation – jetzt wirklich separat und weiter unten */}
+      <div className="w-full flex justify-center mt-16">
+        <div className="max-w-6xl w-full px-4 sm:px-6 lg:px-8">
+          <KategorieNavigation />
+        </div>
+      </div>
 
-      <main className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-6xl mx-auto pt-10 pb-12 px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl md:text-3xl font-bold text-[#003b5b] mb-6">
           {title}
         </h1>

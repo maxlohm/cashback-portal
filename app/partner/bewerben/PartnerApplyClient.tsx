@@ -113,7 +113,7 @@ export default function PartnerApplyClient() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full h-11 rounded-xl border px-3"
-                placeholder="Max Lohmann"
+                placeholder="Max Mustermann"
               />
             </Field>
 
@@ -159,8 +159,8 @@ export default function PartnerApplyClient() {
                 className="w-full min-h-[140px] rounded-xl border px-3 py-2"
                 placeholder="Ich poste 3x/Woche Deal-Videos, Schwerpunkt Finance/Shopping, Zielgruppe 18–30..."
               />
-              <InlineHint ok={pitch.trim().length >= 20}>
-                Mindestens 20 Zeichen, sonst zu dünn.
+              <InlineHint ok={pitch.trim().length >= 10}>
+                Mindestens 10 Zeichen
               </InlineHint>
             </Field>
 
