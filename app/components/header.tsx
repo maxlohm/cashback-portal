@@ -6,6 +6,14 @@ import { supabase } from '@/utils/supabaseClient'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
+function parseIsAdmin(data: any): boolean {
+  if (data === true) return true
+  if (data === false || data == null) return false
+  if (typeof data === 'object' && data.is_admin === true) return true
+  if (Array.isArray(data) && data[0]?.is_admin === true) return true
+  return false
+}
+
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [isPartner, setIsPartner] = useState(false)
@@ -16,31 +24,56 @@ export default function Header() {
   const pathname = usePathname()
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      const user = data?.user
+    let alive = true
 
-      if (user) {
+    const checkUser = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        const user = data?.user
+
+        if (!alive) return
+
+        if (!user) {
+          setLoggedIn(false)
+          setIsPartner(false)
+          setIsAdmin(false)
+          setLoadingAuth(false)
+          return
+        }
+
         setLoggedIn(true)
 
-        // Partner-Check
+        // Admin-Check (robust)
+        const { data: isAdminData } = await supabase.rpc('is_admin')
+        const admin = parseIsAdmin(isAdminData)
+
+        // Partner-Check (nur echte Partner aus partners Tabelle)
+        // Admin zählt nachher trotzdem als "Partner" für Menü-Link
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle()
 
-        // Admin-Check
-        const { data: isAdminFlag } = await supabase.rpc('is_admin')
+        if (!alive) return
 
-        setIsPartner(!!partner || isAdminFlag === true)
-        setIsAdmin(isAdminFlag === true)
+        setIsAdmin(admin)
+        setIsPartner(!!partner || admin) // ✅ Admin sieht Partner-Dashboard
+      } catch {
+        if (!alive) return
+        setLoggedIn(false)
+        setIsPartner(false)
+        setIsAdmin(false)
+      } finally {
+        if (!alive) return
+        setLoadingAuth(false)
       }
-
-      setLoadingAuth(false)
     }
 
-    checkUser()
+    void checkUser()
+    return () => {
+      alive = false
+    }
   }, [pathname])
 
   useEffect(() => {
@@ -73,32 +106,22 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
-
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
                 Angebote
               </Link>
 
               {!loadingAuth && loggedIn && (
                 <>
-                  <Link
-                    href="/profil-bearbeiten"
-                    className="block px-4 py-2 hover:bg-gray-100"
-                  >
+                  <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">
                     Mein Profil
                   </Link>
 
-                  <Link
-                    href="/dashboard"
-                    className="block px-4 py-2 hover:bg-gray-100"
-                  >
+                  <Link href="/dashboard" className="block px-4 py-2 hover:bg-gray-100">
                     Dashboard
                   </Link>
 
                   {isPartner && (
-                    <Link
-                      href="/partner-dashboard"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                    >
+                    <Link href="/partner-dashboard" className="block px-4 py-2 hover:bg-gray-100">
                       Partner-Dashboard
                     </Link>
                   )}
@@ -109,38 +132,23 @@ export default function Header() {
                         Admin
                       </div>
 
-                      <Link
-                        href="/admin/redemptions"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
+                      <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
                         Admin-Dashboard
                       </Link>
 
-                      <Link
-                        href="/admin/partner-applications"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
+                      <Link href="/admin/partner-applications" className="block px-4 py-2 hover:bg-gray-100">
                         Partner-Bewerbungen
                       </Link>
 
-                        <Link
-                        href="/admin/partners"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
-                        Partners
+                      <Link href="/admin/partners" className="block px-4 py-2 hover:bg-gray-100">
+                        Partner-Verwaltung
                       </Link>
 
-                      <Link
-                        href="/admin/influencer-payout"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
+                      <Link href="/admin/influencer-payout" className="block px-4 py-2 hover:bg-gray-100">
                         Influencer-Abrechnung
                       </Link>
 
-                      <Link
-                        href="/admin/users"
-                        className="block px-4 py-2 hover:bg-gray-100"
-                      >
+                      <Link href="/admin/users" className="block px-4 py-2 hover:bg-gray-100">
                         Nutzerverwaltung
                       </Link>
                     </>
@@ -166,17 +174,11 @@ export default function Header() {
                   </button>
                 ) : (
                   <>
-                    <Link
-                      href="/login"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                    >
+                    <Link href="/login" className="block px-4 py-2 hover:bg-gray-100">
                       Login
                     </Link>
 
-                    <Link
-                      href="/register"
-                      className="block px-4 py-2 hover:bg-gray-100"
-                    >
+                    <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">
                       Registrieren
                     </Link>
                   </>
@@ -188,7 +190,6 @@ export default function Header() {
 
       {/* Header-Inhalte */}
       <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
-
         {/* Logo */}
         <div className="w-36 sm:w-40 md:w-44">
           <Link href="/">
