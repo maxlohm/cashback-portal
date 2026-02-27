@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import {
   LineChart,
@@ -42,36 +42,78 @@ type RedemptionRow = {
 type SeriesPoint = { d: string; amount: number }
 type Offer = { id: string; title: string }
 
+type PartnerInfo = {
+  id: string
+  commission_rate: number | null
+  name?: string | null
+}
+
+type OfferPerfRow = {
+  offer_id: string
+  title: string
+  clicks: number
+  leads: number
+  cr: number
+  revenue: number
+}
+
 const fmtEUR = (n: number) => `${Number(n || 0).toFixed(2)} €`
+const fmtPct = (n: number) => `${(Number(n || 0) * 100).toFixed(0)} %`
 const monthKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+function addDays(d: Date, days: number) {
+  const x = new Date(d)
+  x.setDate(x.getDate() + days)
+  return x
+}
 
 export default function PartnerDashboardClient() {
   const supabase = useMemo(() => createClientComponentClient(), [])
 
+  // Global filters
   const [statusFilter, setStatusFilter] =
     useState<'all' | 'open' | 'confirmed' | 'ready'>('all')
-  const [month, setMonth] = useState<string>('all')
+
+  const [month, setMonth] = useState<string>('all') // all | YYYY-MM | custom
   const [customFrom, setCustomFrom] = useState<string>('')
   const [customTo, setCustomTo] = useState<string>('')
 
+  // Global Deal filter (applies everywhere)
+  const [qOffer, setQOffer] = useState('')
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
+
+  // Deal-performance sort (table only)
+  const [perfSort, setPerfSort] = useState<'revenue' | 'clicks' | 'leads' | 'cr'>(
+    'revenue',
+  )
+
+  // Data
   const [stats, setStats] = useState<Stats | null>(null)
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([])
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
+  const [clicksByOffer, setClicksByOffer] = useState<Record<string, number>>({})
 
-  const [userId, setUserId] = useState<string | null>(null)       // auth.uid
-  const [partnerId, setPartnerId] = useState<string | null>(null) // partners.id (canonical ref)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
 
+  // UI
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [openLinks, setOpenLinks] = useState(true)
+  const [openPerf, setOpenPerf] = useState(true)
   const [openPayout, setOpenPayout] = useState(true)
   const [openLeads, setOpenLeads] = useState(true)
   const [openPayouts, setOpenPayouts] = useState(false)
-  const [openLinks, setOpenLinks] = useState(true)
-  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null)
+
+  // Promo link offer dropdown (independent of filtering; just for link building)
+  const [promoOfferId, setPromoOfferId] = useState<string | null>(null)
 
   // Copy toast
   const [toast, setToast] = useState<string | null>(null)
@@ -84,16 +126,17 @@ export default function PartnerDashboardClient() {
     return process.env.NEXT_PUBLIC_SITE_URL || ''
   }, [])
 
+  // Zeitraum: customTo wird "inklusive" interpretiert, DB-Query nutzt toDate exclusive (= customTo + 1 Tag)
   const { fromDate, toDate } = useMemo(() => {
     if (month === 'all') return { fromDate: null, toDate: null }
     if (month === 'custom') {
-      return {
-        fromDate: customFrom ? new Date(customFrom) : null,
-        toDate: customTo ? new Date(customTo) : null,
-      }
+      const fd = customFrom ? new Date(customFrom) : null
+      const tdRaw = customTo ? new Date(customTo) : null
+      const td = tdRaw ? addDays(tdRaw, 1) : null // exclusive
+      return { fromDate: fd, toDate: td }
     }
     const [y, m] = month.split('-').map(Number)
-    return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) }
+    return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) } // exclusive
   }, [month, customFrom, customTo])
 
   const showToast = (msg: string) => {
@@ -112,7 +155,43 @@ export default function PartnerDashboardClient() {
     }
   }
 
-  /** Initial load: Auth + PartnerId + Offers */
+  // Quick-range: setzt Custom Range
+  const applyQuickRange = (kind: '24h' | '7d') => {
+    const today = new Date()
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate()) // heute 00:00
+    if (kind === '24h') {
+      const start = addDays(end, -1)
+      setMonth('custom')
+      setCustomFrom(toISODate(start))
+      setCustomTo(toISODate(end))
+      return
+    }
+    const start = addDays(end, -6) // 7 Tage inkl. heute
+    setMonth('custom')
+    setCustomFrom(toISODate(start))
+    setCustomTo(toISODate(end))
+  }
+
+  // Offer suggestions (autocomplete) - from OFFERS (not advertisers)
+  const offerSuggestions = useMemo(() => {
+    const q = qOffer.trim().toLowerCase()
+    if (!q) return []
+    return offers
+      .filter(o => o.title.toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [qOffer, offers])
+
+  const chooseOffer = (o: Offer) => {
+    setSelectedOfferId(o.id)
+    setQOffer(o.title)
+  }
+
+  const clearOfferFilter = () => {
+    setSelectedOfferId(null)
+    setQOffer('')
+  }
+
+  /** Initial load: Auth + PartnerInfo + Offers */
   useEffect(() => {
     ;(async () => {
       setError(null)
@@ -122,25 +201,35 @@ export default function PartnerDashboardClient() {
       setUserId(uid)
 
       if (!uid) {
-        setPartnerId(null)
+        setPartnerInfo(null)
         return
       }
 
-      // ✅ canonical Partner-ID holen: partners.id where partners.user_id = auth.uid()
+      // partners: id, commission_rate, name
       const { data: ptn, error: ptnErr } = await supabase
         .from('partners')
-        .select('id')
+        .select('id, commission_rate, name')
         .eq('user_id', uid)
         .maybeSingle()
 
       if (ptnErr) {
         console.error(ptnErr)
-        setPartnerId(null)
+        setPartnerInfo(null)
       } else {
-        setPartnerId((ptn as any)?.id ?? null)
+        setPartnerInfo(
+          ptn
+            ? {
+                id: (ptn as any).id,
+                commission_rate:
+                  (ptn as any).commission_rate != null
+                    ? Number((ptn as any).commission_rate)
+                    : null,
+                name: (ptn as any).name ?? null,
+              }
+            : null,
+        )
       }
 
-      // Offers (für Deal-Link Dropdown)
       const { data: off, error: offErr } = await supabase
         .from('offers')
         .select('id,title,active,created_at')
@@ -157,9 +246,36 @@ export default function PartnerDashboardClient() {
         title: o.title as string,
       }))
       setOffers(list)
-      setSelectedOfferId(list[0]?.id ?? null)
+      setPromoOfferId(list[0]?.id ?? null)
     })()
   }, [supabase])
+
+  /** Load clicks per offer (for performance table) */
+  const refreshClicks = async (
+    partnerId: string,
+    fromISO: string | null,
+    toISO: string | null,
+    offerId: string | null,
+  ) => {
+    let q = supabase
+      .from('clicks')
+      .select('offer_id, clicked_at')
+      .eq('influencer_id', partnerId)
+
+    if (fromISO) q = q.gte('clicked_at', fromISO)
+    if (toISO) q = q.lt('clicked_at', toISO)
+    if (offerId) q = q.eq('offer_id', offerId)
+
+    const { data, error } = await q
+    if (error) throw new Error(`clicks: ${error.message}`)
+
+    const m: Record<string, number> = {}
+    for (const r of data ?? []) {
+      const oid = (r as any).offer_id as string
+      m[oid] = (m[oid] ?? 0) + 1
+    }
+    setClicksByOffer(m)
+  }
 
   /** Main refresh */
   const refresh = async () => {
@@ -168,8 +284,8 @@ export default function PartnerDashboardClient() {
     try {
       const leadParams = {
         p_status: statusFilter,
-        p_from: fromDate ? fromDate.toISOString().slice(0, 10) : null,
-        p_to: toDate ? toDate.toISOString().slice(0, 10) : null,
+        p_from: fromDate ? toISODate(fromDate) : null,
+        p_to: toDate ? toISODate(toDate) : null, // exclusive
         p_limit: 500,
         p_offset: 0,
       }
@@ -189,7 +305,14 @@ export default function PartnerDashboardClient() {
       ])
 
       setStats(statsData)
-      setLeads((leadsData ?? []).map((r: any) => ({ ...r })))
+
+      // Apply offer filter client-side (no DB change needed)
+      const rawLeads: LeadRow[] = (leadsData ?? []).map((r: any) => ({ ...r }))
+      const filteredLeads = selectedOfferId
+        ? rawLeads.filter(l => l.offer_id === selectedOfferId)
+        : rawLeads
+      setLeads(filteredLeads)
+
       setSeries(
         (tsData ?? []).map((r: any) => ({
           d: r.d as string,
@@ -197,6 +320,18 @@ export default function PartnerDashboardClient() {
         })),
       )
       setRedemptions(redData ?? [])
+
+      // Clicks per offer (respects offer filter)
+      if (partnerInfo?.id) {
+        await refreshClicks(
+          partnerInfo.id,
+          leadParams.p_from,
+          leadParams.p_to,
+          selectedOfferId,
+        )
+      } else {
+        setClicksByOffer({})
+      }
     } catch (e: any) {
       console.error(e)
       setError(e?.message || 'Fehler beim Laden')
@@ -208,7 +343,12 @@ export default function PartnerDashboardClient() {
   useEffect(() => {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, month, customFrom, customTo])
+  }, [statusFilter, month, customFrom, customTo, partnerInfo?.id, selectedOfferId])
+
+  // KPIs are now based on filtered leads + filtered clicksByOffer
+  const totalClicksFiltered = useMemo(() => {
+    return Object.values(clicksByOffer).reduce((a, b) => a + Number(b || 0), 0)
+  }, [clicksByOffer])
 
   const kpis = useMemo(() => {
     const open = leads.filter(x => !x.confirmed).length
@@ -238,6 +378,62 @@ export default function PartnerDashboardClient() {
       .slice(0, 5)
   }, [leads])
 
+  const offerPerf = useMemo((): OfferPerfRow[] => {
+    const leadAgg = new Map<
+      string,
+      { title: string; leads: number; revenue: number }
+    >()
+
+    for (const l of leads) {
+      const cur =
+        leadAgg.get(l.offer_id) ?? {
+          title: l.offer_title,
+          leads: 0,
+          revenue: 0,
+        }
+      cur.leads += 1
+      cur.revenue += Number(l.amount || 0)
+      leadAgg.set(l.offer_id, cur)
+    }
+
+    const allIds = new Set<string>()
+    for (const oid of Object.keys(clicksByOffer)) allIds.add(oid)
+    for (const oid of leadAgg.keys()) allIds.add(oid)
+
+    const rows: OfferPerfRow[] = []
+    for (const oid of allIds) {
+      const title =
+        offers.find(o => o.id === oid)?.title ??
+        leadAgg.get(oid)?.title ??
+        'Unbekanntes Offer'
+
+      const clicks = Number(clicksByOffer[oid] ?? 0)
+      const leadsCount = Number(leadAgg.get(oid)?.leads ?? 0)
+      const revenue = Number(leadAgg.get(oid)?.revenue ?? 0)
+      const cr = clicks > 0 ? leadsCount / clicks : 0
+
+      if (clicks === 0 && leadsCount === 0) continue
+      rows.push({
+        offer_id: oid,
+        title,
+        clicks,
+        leads: leadsCount,
+        cr,
+        revenue,
+      })
+    }
+
+    // Sort
+    rows.sort((a, b) => {
+      if (perfSort === 'clicks') return b.clicks - a.clicks
+      if (perfSort === 'leads') return b.leads - a.leads
+      if (perfSort === 'cr') return b.cr - a.cr
+      return b.revenue - a.revenue
+    })
+
+    return rows
+  }, [offers, clicksByOffer, leads, perfSort])
+
   const hasOpenRequest = useMemo(
     () =>
       redemptions.some(r =>
@@ -254,10 +450,11 @@ export default function PartnerDashboardClient() {
     )
   }
 
-  // ✅ Promo-Links korrekt (canonical ref = partners.id)
+  // Promo Links (canonical ref = partners.id)
+  const partnerId = partnerInfo?.id ?? null
   const landingLink = partnerId ? `${siteUrl}/?ref=${partnerId}` : ''
   const dealLink = (offerId: string | null) =>
-  partnerId && offerId ? `${siteUrl}/angebot/${offerId}?ref=${partnerId}` : ''
+    partnerId && offerId ? `${siteUrl}/angebot/${offerId}?ref=${partnerId}` : ''
 
   const last12 = useMemo(() => {
     const arr: string[] = []
@@ -282,6 +479,24 @@ export default function PartnerDashboardClient() {
       >
         <div className="rounded-xl bg-[#003b5b] text-white text-sm px-4 py-2 shadow-lg">
           {toast ?? ''}
+        </div>
+      </div>
+
+      {/* Commission Banner */}
+      <div className="bg-white border rounded p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div>
+          <div className="text-xs text-gray-500">Dein Provisionssatz</div>
+          <div className="text-lg font-semibold">
+            {partnerInfo?.commission_rate != null
+              ? fmtPct(partnerInfo.commission_rate)
+              : '—'}
+          </div>
+          <div className="text-xs text-gray-500">
+            Anteil an der Marge: (Netzwerkbetrag − User-Cashback) × Provisionssatz
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {partnerInfo?.name ? `Partner: ${partnerInfo.name}` : ''}
         </div>
       </div>
 
@@ -320,8 +535,8 @@ export default function PartnerDashboardClient() {
 
             <select
               className="border rounded px-2 py-2 text-sm bg-white"
-              value={selectedOfferId ?? ''}
-              onChange={e => setSelectedOfferId(e.target.value)}
+              value={promoOfferId ?? ''}
+              onChange={e => setPromoOfferId(e.target.value)}
               disabled={offers.length === 0}
             >
               {offers.map(o => (
@@ -334,107 +549,240 @@ export default function PartnerDashboardClient() {
             <input
               className="flex-1 border rounded px-3 py-2 text-sm"
               readOnly
-              value={dealLink(selectedOfferId) || ''}
+              value={dealLink(promoOfferId) || ''}
             />
 
             <button
               className="px-3 py-2 border rounded bg-white text-sm hover:bg-gray-50 active:scale-[0.98] transition disabled:opacity-60"
-              onClick={() => copy(dealLink(selectedOfferId) || '', 'Deal-Link kopiert')}
-              disabled={!dealLink(selectedOfferId)}
+              onClick={() => copy(dealLink(promoOfferId) || '', 'Deal-Link kopiert')}
+              disabled={!dealLink(promoOfferId)}
             >
               kopieren
             </button>
           </div>
 
           <p className="text-xs text-gray-500">
-            Tracking passiert beim Klick auf „Zum Angebot“ (Redirect /r).
-            Sub-ID wird dort automatisch eingefügt (FinanceAds=subid, AWIN=clickref, Belboon=smc1).
+            Tracking passiert beim Klick auf „Jetzt Angebot sichern“.
           </p>
         </div>
       </Section>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Kpi title="Klicks gesamt" value={stats?.total_clicks ?? 0} />
+        <Kpi title="Klicks gesamt" value={totalClicksFiltered} />
         <Kpi title="Leads bestätigt" value={kpis.confirmed} />
         <Kpi title="Einnahmen (Zeitraum)" value={fmtEUR(kpis.sumPeriod)} />
         <Kpi title="Auszahlbar" value={fmtEUR(kpis.sumReady)} />
         <Kpi title="Einnahmen gesamt" value={fmtEUR(stats?.total_earnings ?? 0)} />
       </div>
 
-      {/* Filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-3 py-2 rounded border text-sm ${
-              statusFilter === s
-                ? 'bg-[#003b5b] text-white'
-                : 'bg-white hover:bg-gray-50'
-            }`}
-          >
-            {s === 'all'
-              ? 'Alle'
-              : s === 'open'
-              ? 'Offen'
-              : s === 'confirmed'
-              ? 'Bestätigt'
-              : 'Auszahlbar'}
-          </button>
-        ))}
-
-        <select
-          className="border rounded px-2 py-2 text-sm bg-white"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-        >
-          <option value="all">Alle Monate</option>
-          {last12.map(m => (
-            <option key={m} value={m}>
-              {m}
-            </option>
+      {/* GLOBAL FILTER BAR (everything in one row) */}
+      <div className="bg-white border rounded p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status */}
+          {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-2 rounded border text-sm ${
+                statusFilter === s
+                  ? 'bg-[#003b5b] text-white'
+                  : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              {s === 'all'
+                ? 'Alle'
+                : s === 'open'
+                ? 'Offen'
+                : s === 'confirmed'
+                ? 'Bestätigt'
+                : 'Auszahlbar'}
+            </button>
           ))}
-          <option value="custom">Benutzerdefiniert…</option>
-        </select>
 
-        {month === 'custom' && (
-          <div className="flex items-center gap-2">
+          <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
+
+          {/* Quick ranges */}
+          <button
+            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
+            onClick={() => applyQuickRange('24h')}
+          >
+            Letzte 24h
+          </button>
+          <button
+            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
+            onClick={() => applyQuickRange('7d')}
+          >
+            Letzte 7 Tage
+          </button>
+
+          <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
+
+          {/* Month / custom */}
+          <select
+            className="border rounded px-2 py-2 text-sm bg-white"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+          >
+            <option value="all">Alle Monate</option>
+            {last12.map(m => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="custom">Benutzerdefiniert…</option>
+          </select>
+
+          {month === 'custom' && (
+            <>
+              <input
+                type="date"
+                className="border rounded px-2 py-2 text-sm"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+              />
+              <span className="text-sm text-gray-500">bis</span>
+              <input
+                type="date"
+                className="border rounded px-2 py-2 text-sm"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+              />
+            </>
+          )}
+
+          <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
+
+          {/* Offer autocomplete filter */}
+          <div className="relative min-w-[240px]">
             <input
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={customFrom}
-              onChange={e => setCustomFrom(e.target.value)}
+              className="border rounded px-3 py-2 text-sm bg-white w-full"
+              placeholder="Deal filtern (z.B. cons)…"
+              value={qOffer}
+              onChange={e => setQOffer(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape') clearOfferFilter()
+              }}
             />
-            <span className="text-sm">bis</span>
-            <input
-              type="date"
-              className="border rounded px-2 py-1 text-sm"
-              value={customTo}
-              onChange={e => setCustomTo(e.target.value)}
-            />
+            {qOffer.trim() && offerSuggestions.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-sm overflow-hidden">
+                {offerSuggestions.map(o => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    onClick={() => chooseOffer(o)}
+                  >
+                    {o.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedOfferId && (
             <button
               className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
-              onClick={refresh}
+              onClick={clearOfferFilter}
+              title="Deal-Filter entfernen"
             >
-              Anwenden
+              Deal-Filter: an ✕
             </button>
-          </div>
-        )}
+          )}
+
+          <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
+
+          {/* Table sort */}
+          <select
+            className="border rounded px-2 py-2 text-sm bg-white"
+            value={perfSort}
+            onChange={e => setPerfSort(e.target.value as any)}
+            title="Sortierung (Deal-Performance)"
+          >
+            <option value="revenue">Sort: Umsatz</option>
+            <option value="clicks">Sort: Clicks</option>
+            <option value="leads">Sort: Leads</option>
+            <option value="cr">Sort: CR</option>
+          </select>
+
+          <button
+            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
+            onClick={() => {
+              setStatusFilter('all')
+              setMonth('all')
+              setCustomFrom('')
+              setCustomTo('')
+              clearOfferFilter()
+              setPerfSort('revenue')
+            }}
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
       {/* Chart */}
       <div className="w-full h-64 bg-white border rounded p-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="d" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="amount" strokeWidth={2} />
-          </LineChart>
-        </ResponsiveContainer>
+        {series.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+            Noch keine Umsätze im Zeitraum.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={series}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="d" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="amount" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
+
+      {/* Deal-Performance */}
+      <Section
+        title="Deal-Performance"
+        subtitle="Clicks vs. Leads pro Deal (im Zeitraum)"
+        open={openPerf}
+        onToggle={() => setOpenPerf(v => !v)}
+      >
+        <div className="overflow-auto bg-white border rounded">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <Th>Offer</Th>
+                <Th className="text-right">Clicks</Th>
+                <Th className="text-right">Leads</Th>
+                <Th className="text-right">CR</Th>
+                <Th className="text-right">Umsatz</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {offerPerf.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center p-6 text-gray-500">
+                    Noch keine Daten im Zeitraum.
+                  </td>
+                </tr>
+              )}
+              {offerPerf.map(r => (
+                <tr key={r.offer_id} className="border-t">
+                  <Td className="font-medium">{r.title}</Td>
+                  <Td className="text-right">{r.clicks}</Td>
+                  <Td className="text-right">{r.leads}</Td>
+                  <Td className="text-right">{(r.cr * 100).toFixed(1)} %</Td>
+                  <Td className="text-right">{fmtEUR(r.revenue)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          Clicks = Klicks auf unsere Website über deine Links (bei uns getrackt).
+        </p>
+      </Section>
 
       {/* Auszahlung */}
       <Section
@@ -445,7 +793,7 @@ export default function PartnerDashboardClient() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Kpi title="Auszahlbares Guthaben" value={fmtEUR(kpis.sumReady)} />
           <div className="flex items-center md:col-span-2 justify-end gap-3">
-            {hasOpenRequest && (
+            {hasOpenRequest && kpis.sumReady > 0 && (
               <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
                 Es gibt bereits eine offene Auszahlungsanfrage.
               </span>
@@ -460,12 +808,16 @@ export default function PartnerDashboardClient() {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Hinweis: Influencer erhalten Auszahlungen per Rechnung. Keine Gutscheine – klassischer B2B-Flow.
+          Hinweis: Influencer erhalten Auszahlungen per Rechnung.
         </p>
       </Section>
 
       {/* Top Offers */}
-      <Section title="Top-Offers (Umsatz im Zeitraum)" open={true} onToggle={() => {}}>
+      <Section
+        title="Top-Offers (Umsatz im Zeitraum)"
+        open={true}
+        onToggle={() => {}}
+      >
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {topOffers.length === 0 && (
             <div className="text-sm text-gray-500">Noch keine Daten.</div>
@@ -516,7 +868,9 @@ export default function PartnerDashboardClient() {
                   : 'offen'
                 return (
                   <tr key={l.id} className="border-t">
-                    <Td>{date ? new Date(date).toLocaleString('de-DE') : '-'}</Td>
+                    <Td>
+                      {date ? new Date(date).toLocaleString('de-DE') : '-'}
+                    </Td>
                     <Td className="font-medium">{l.offer_title}</Td>
                     <Td>
                       <span
@@ -588,7 +942,7 @@ export default function PartnerDashboardClient() {
   )
 }
 
-/* UI-Helfer */
+/* UI helpers */
 function Kpi({ title, value }: { title: string; value: number | string }) {
   return (
     <div className="bg-white border rounded p-4">
@@ -598,12 +952,25 @@ function Kpi({ title, value }: { title: string; value: number | string }) {
   )
 }
 
-function Section({ title, subtitle, open, onToggle, children }: any) {
+function Section({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
   return (
     <div className="bg-[#fafafa] border rounded">
       <button
         onClick={onToggle}
         className="w-full text-left px-4 py-3 flex items-center justify-between"
+        type="button"
       >
         <div>
           <div className="font-semibold">{title}</div>
