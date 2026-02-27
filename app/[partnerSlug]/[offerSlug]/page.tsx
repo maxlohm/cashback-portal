@@ -5,14 +5,14 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PartnerOfferPage({
-  params,
-}: {
-  params: { partnerSlug: string; offerSlug: string }
-}) {
+type Props = {
+  params: Promise<{ partnerSlug: string; offerSlug: string }>
+}
+
+export default async function PartnerOfferPage({ params }: Props) {
   const supabase = createServerComponentClient({ cookies })
 
-  const { partnerSlug, offerSlug } = params
+  const { partnerSlug, offerSlug } = await params
 
   const [{ data: partnerId }, { data: offerId }] = await Promise.all([
     supabase.rpc('resolve_partner_slug', { p_slug: partnerSlug }),
