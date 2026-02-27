@@ -40,10 +40,11 @@ type RedemptionRow = {
 }
 
 type SeriesPoint = { d: string; amount: number }
-type Offer = { id: string; title: string }
+type Offer = { id: string; title: string; slug: string }
 
 type PartnerInfo = {
   id: string
+  slug: string | null
   commission_rate: number | null
   name?: string | null
 }
@@ -113,7 +114,7 @@ export default function PartnerDashboardClient() {
   const [openPayouts, setOpenPayouts] = useState(false)
 
   // Promo link offer dropdown (independent of filtering; just for link building)
-  const [promoOfferId, setPromoOfferId] = useState<string | null>(null)
+  const [promoOfferSlug, setPromoOfferSlug] = useState<string | null>(null)
 
   // Copy toast
   const [toast, setToast] = useState<string | null>(null)
@@ -205,10 +206,10 @@ export default function PartnerDashboardClient() {
         return
       }
 
-      // partners: id, commission_rate, name
+      // partners: id, slug, commission_rate, name
       const { data: ptn, error: ptnErr } = await supabase
         .from('partners')
-        .select('id, commission_rate, name')
+        .select('id, slug, commission_rate, name')
         .eq('user_id', uid)
         .maybeSingle()
 
@@ -220,6 +221,7 @@ export default function PartnerDashboardClient() {
           ptn
             ? {
                 id: (ptn as any).id,
+                slug: (ptn as any).slug ?? null,
                 commission_rate:
                   (ptn as any).commission_rate != null
                     ? Number((ptn as any).commission_rate)
@@ -232,7 +234,7 @@ export default function PartnerDashboardClient() {
 
       const { data: off, error: offErr } = await supabase
         .from('offers')
-        .select('id,title,active,created_at')
+        .select('id,title,slug,active,created_at')
         .eq('active', true)
         .order('created_at', { ascending: false })
 
@@ -244,9 +246,10 @@ export default function PartnerDashboardClient() {
       const list: Offer[] = (off ?? []).map((o: any) => ({
         id: o.id as string,
         title: o.title as string,
+        slug: o.slug as string,
       }))
       setOffers(list)
-      setPromoOfferId(list[0]?.id ?? null)
+      setPromoOfferSlug(list[0]?.slug ?? null)
     })()
   }, [supabase])
 
@@ -450,11 +453,11 @@ export default function PartnerDashboardClient() {
     )
   }
 
-  // Promo Links (canonical ref = partners.id)
-  const partnerId = partnerInfo?.id ?? null
-  const landingLink = partnerId ? `${siteUrl}/?ref=${partnerId}` : ''
-  const dealLink = (offerId: string | null) =>
-    partnerId && offerId ? `${siteUrl}/angebot/${offerId}?ref=${partnerId}` : ''
+  // Promo Links (PRETTY)
+  const partnerSlug = partnerInfo?.slug ?? null
+  const landingLink = partnerSlug ? `${siteUrl}/${partnerSlug}` : ''
+  const dealLink = (offerSlug: string | null) =>
+    partnerSlug && offerSlug ? `${siteUrl}/${partnerSlug}/${offerSlug}` : ''
 
   const last12 = useMemo(() => {
     const arr: string[] = []
@@ -506,10 +509,9 @@ export default function PartnerDashboardClient() {
         open={openLinks}
         onToggle={() => setOpenLinks(v => !v)}
       >
-        {!partnerId && (
+        {!partnerSlug && (
           <div className="mb-4 rounded-xl border bg-white p-4 text-sm text-amber-700">
-            Partner-ID nicht gefunden. Du bist entweder nicht als Partner angelegt
-            oder `partners.user_id` ist nicht gesetzt.
+            Partner-Slug nicht gefunden. Prüfe `partners.slug` für deinen Partner.
           </div>
         )}
 
@@ -535,12 +537,12 @@ export default function PartnerDashboardClient() {
 
             <select
               className="border rounded px-2 py-2 text-sm bg-white"
-              value={promoOfferId ?? ''}
-              onChange={e => setPromoOfferId(e.target.value)}
+              value={promoOfferSlug ?? ''}
+              onChange={e => setPromoOfferSlug(e.target.value)}
               disabled={offers.length === 0}
             >
               {offers.map(o => (
-                <option key={o.id} value={o.id}>
+                <option key={o.id} value={o.slug}>
                   {o.title}
                 </option>
               ))}
@@ -549,13 +551,13 @@ export default function PartnerDashboardClient() {
             <input
               className="flex-1 border rounded px-3 py-2 text-sm"
               readOnly
-              value={dealLink(promoOfferId) || ''}
+              value={dealLink(promoOfferSlug) || ''}
             />
 
             <button
               className="px-3 py-2 border rounded bg-white text-sm hover:bg-gray-50 active:scale-[0.98] transition disabled:opacity-60"
-              onClick={() => copy(dealLink(promoOfferId) || '', 'Deal-Link kopiert')}
-              disabled={!dealLink(promoOfferId)}
+              onClick={() => copy(dealLink(promoOfferSlug) || '', 'Deal-Link kopiert')}
+              disabled={!dealLink(promoOfferSlug)}
             >
               kopieren
             </button>
@@ -813,11 +815,7 @@ export default function PartnerDashboardClient() {
       </Section>
 
       {/* Top Offers */}
-      <Section
-        title="Top-Offers (Umsatz im Zeitraum)"
-        open={true}
-        onToggle={() => {}}
-      >
+      <Section title="Top-Offers (Umsatz im Zeitraum)" open={true} onToggle={() => {}}>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {topOffers.length === 0 && (
             <div className="text-sm text-gray-500">Noch keine Daten.</div>

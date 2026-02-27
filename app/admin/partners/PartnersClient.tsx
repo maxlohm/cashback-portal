@@ -5,6 +5,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 type PartnerRow = {
   partner_id: string
+  slug: string | null
   user_id: string | null
   email: string | null
   name: string | null
@@ -39,6 +40,16 @@ function toDateInputValue(iso: string | null) {
   return `${yyyy}-${mm}-${dd}`
 }
 
+function slugifyLoose(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export default function PartnersClient() {
   const supabase = useMemo(() => createClientComponentClient(), [])
 
@@ -52,6 +63,8 @@ export default function PartnersClient() {
   // Edit Modal
   const [editOpen, setEditOpen] = useState(false)
   const [editPartner, setEditPartner] = useState<PartnerRow | null>(null)
+
+  const [slug, setSlug] = useState('')
   const [promoPct, setPromoPct] = useState('')
   const [basePct, setBasePct] = useState('')
   const [promoUntil, setPromoUntil] = useState('') // YYYY-MM-DD oder ''
@@ -87,12 +100,14 @@ export default function PartnersClient() {
     setEditPartner(p)
     setEditOpen(true)
 
+    setSlug(p.slug ?? '')
     setPromoPct(rateToPct(p.commission_rate_promo))
     setBasePct(rateToPct(p.commission_rate_base))
     setPromoUntil(toDateInputValue(p.commission_promo_until))
 
     setFollowers(p.follower_count != null ? String(p.follower_count) : '')
     setNotes('')
+    setError(null)
   }
 
   async function saveEdit() {
@@ -111,6 +126,17 @@ export default function PartnersClient() {
       return
     }
 
+    // slug validieren (required)
+    const slugClean = slugifyLoose(slug)
+    if (!slugClean || slugClean.length < 3) {
+      setError('Slug ist zu kurz.')
+      return
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slugClean)) {
+      setError('Slug-Format ungültig. Nutze nur a-z, 0-9 und "-" (z.B. gratis-geier).')
+      return
+    }
+
     // Wichtig: leeres Datum => null
     const promoUntilTs =
       promoUntil.trim().length === 10
@@ -123,6 +149,19 @@ export default function PartnersClient() {
     setBusyId(editPartner.partner_id)
     setError(null)
 
+    // 1) slug speichern
+    const { error: slugErr } = await supabase.rpc('admin_update_partner_slug', {
+      p_partner_id: editPartner.partner_id,
+      p_slug: slugClean,
+    })
+
+    if (slugErr) {
+      setError(slugErr.message)
+      setBusyId(null)
+      return
+    }
+
+    // 2) commission speichern (bestehend)
     const { error } = await supabase.rpc('admin_update_partner_commission', {
       p_partner_id: editPartner.partner_id,
       p_base_rate: baseRate,
@@ -210,6 +249,7 @@ export default function PartnersClient() {
                 <div className="md:col-span-3">
                   <div className="font-semibold">{p.name ?? '—'}</div>
                   <div className="text-sm text-gray-700">{p.email ?? '—'}</div>
+                  <div className="mt-1 text-xs text-gray-500">Slug: {p.slug ?? '—'}</div>
                   <div className="mt-1 text-xs text-gray-500">Partner-ID: {p.partner_id}</div>
                 </div>
 
@@ -280,6 +320,19 @@ export default function PartnersClient() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium">Slug (URL)</label>
+                <input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                  placeholder="z.B. gratis-geier"
+                />
+                <div className="mt-1 text-xs text-gray-500">
+                  URL: https://bonus-nest.de/{slugifyLoose(slug) || 'dein-slug'}
+                </div>
+              </div>
+
               <div>
                 <label className="text-sm font-medium">Promo % (optional)</label>
                 <input
