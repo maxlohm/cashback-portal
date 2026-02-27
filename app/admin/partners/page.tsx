@@ -1,11 +1,11 @@
-// app/admin/partner-applications/page.tsx
+// app/admin/partners/page.tsx
 import { createClient } from '@/utils/supabaseServer'
-import PartnerApplicationsClient from './PartnerApplicationsClient'
+import PartnersClient from './PartnersClient'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function PartnerApplicationsPage() {
+export default async function AdminPartnersPage() {
   const supabase = createClient()
 
   const { data: isAdmin } = await supabase.rpc('is_admin')
@@ -17,5 +17,5 @@ export default async function PartnerApplicationsPage() {
     )
   }
 
-  return <PartnerApplicationsClient />
+  return <PartnersClient />
 }

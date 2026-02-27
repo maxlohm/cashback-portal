@@ -123,6 +123,13 @@ export default function Header() {
                         Partner-Bewerbungen
                       </Link>
 
+                        <Link
+                        href="/admin/partners"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
+                        Partners
+                      </Link>
+
                       <Link
                         href="/admin/influencer-payout"
                         className="block px-4 py-2 hover:bg-gray-100"
