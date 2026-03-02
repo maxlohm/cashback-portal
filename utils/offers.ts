@@ -59,6 +59,9 @@ export type DbOffer = {
   affiliate_url?: string | null
   created_at: string
   terms?: string | null
+
+  // OPTIONAL (nicht überall genutzt, aber existiert bei dir im Schema)
+  tracking_url_base?: string | null
 }
 
 /* =========================================
@@ -101,7 +104,7 @@ const baseSelect =
 
 export async function getActiveOffers(
   supabase: SupabaseClient,
-  opts: { limit?: number } = {}
+  opts: { limit?: number } = {},
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
 
@@ -123,7 +126,7 @@ export async function getActiveOffers(
 export async function getActiveOffersByCategories(
   supabase: SupabaseClient,
   categories: OfferCategory[],
-  opts: { limit?: number } = {}
+  opts: { limit?: number } = {},
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
 
@@ -145,7 +148,7 @@ export async function getActiveOffersByCategories(
 
 export async function getOfferById(
   supabase: SupabaseClient,
-  id: string
+  id: string,
 ): Promise<Offer | null> {
   const { data, error } = await supabase
     .from('offers')
@@ -167,6 +170,9 @@ type SubIdParts = {
   influencerId?: string | null
   subId?: string | null
   clickToken?: string | null
+
+  // NEU: für communicationAds deeplink
+  targetUrl?: string | null
 }
 
 /* SubID-Priorität:
@@ -196,17 +202,42 @@ function detectSubIdParam(hostname: string): 'clickref' | 'subid' | 'smc1' {
   return 'subid'
 }
 
+function isCommunicationAdsUrl(u: URL) {
+  // Generator liefert Links wie:
+  // https://amt.octopusenergy.de/tc.php?t=...&subid=...&deeplink=...
+  // Sicherer Indikator: /tc.php
+  return u.pathname.toLowerCase().endsWith('/tc.php')
+}
+
 /* Hauptfunktion: Affiliate URL bauen */
 export function buildAffiliateUrl(
   baseUrl: string | null | undefined,
-  parts: SubIdParts
+  parts: SubIdParts,
 ): string | null {
   if (!baseUrl) return null
 
   try {
     const u = new URL(baseUrl)
 
-    // 1) SubID setzen
+    // communicationAds Spezialfall: subid + deeplink
+    if (isCommunicationAdsUrl(u)) {
+      const token = buildSubId(parts)
+
+      // commAds nutzt "subid"
+      u.searchParams.set('subid', token)
+
+      // commAds braucht deeplink (echte Ziel-URL)
+      const target = (parts.targetUrl || '').trim()
+      if (target.length > 0) {
+        u.searchParams.set('deeplink', target)
+      }
+
+      // KEINE zusätzlichen internen Parameter (uid/oid/ref),
+      // damit commAds nicht wegen "unknown params" rumzickt.
+      return u.toString()
+    }
+
+    // 1) SubID setzen (FinanceAds/AWIN/Belboon wie gehabt)
     const key = detectSubIdParam(u.hostname)
     const token = buildSubId(parts)
     u.searchParams.set(key, token)
@@ -230,7 +261,7 @@ export function buildAffiliateUrl(
 export function buildAffiliateUrlLegacy(
   baseUrl: string | null | undefined,
   userId: string,
-  offerId: string
+  offerId: string,
 ): string | null {
   return buildAffiliateUrl(baseUrl, { userId, offerId })
 }

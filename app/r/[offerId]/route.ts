@@ -45,10 +45,10 @@ export async function GET(req: NextRequest, context: any) {
     return res
   }
 
-  // 3) Offer prüfen
+  // 3) Offer prüfen (WICHTIG: tracking_url_base mitladen für communicationAds deeplink)
   const { data: offer, error: offerErr } = await supabase
     .from('offers')
-    .select('id, affiliate_url, active')
+    .select('id, affiliate_url, tracking_url_base, active')
     .eq('id', offerId)
     .eq('active', true)
     .maybeSingle()
@@ -66,7 +66,6 @@ export async function GET(req: NextRequest, context: any) {
 
   // 4) Influencer bestimmen: Query → Cookie → Profil.partner_id
   const refFromCookie = req.cookies.get('bn_ref')?.value ?? null
-
   let influencerId: string | null = refInfluencerId ?? refFromCookie
 
   if (!influencerId) {
@@ -160,7 +159,7 @@ export async function GET(req: NextRequest, context: any) {
 
   const clickToken: string | null = (latest as any)?.subid_token ?? null
 
-  // 7) Ziel-URL bauen
+  // 7) Ziel-URL bauen (WICHTIG: communicationAds braucht targetUrl als deeplink)
   const dest =
     buildAffiliateUrl(offer.affiliate_url, {
       userId: user.id,
@@ -168,6 +167,7 @@ export async function GET(req: NextRequest, context: any) {
       influencerId,
       subId: partnerSubId || undefined,
       clickToken: clickToken || undefined,
+      targetUrl: (offer as any).tracking_url_base || undefined,
     }) || '/'
 
   if (dbg) {
@@ -182,6 +182,7 @@ export async function GET(req: NextRequest, context: any) {
       err,
       row: latest ?? null,
       dest,
+      tracking_url_base: (offer as any).tracking_url_base ?? null,
     })
   }
 
