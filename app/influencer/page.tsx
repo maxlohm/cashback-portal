@@ -19,8 +19,6 @@ type InfluencerRow = {
   followers_whatsapp: number | null
   tags: string[] | null
   featured: boolean
-  contact_label: string | null
-  contact_href: string | null
   sort_order: number
 }
 
@@ -35,7 +33,6 @@ type Influencer = {
   followers: { instagram?: number; tiktok?: number; whatsapp?: number }
   tags: string[]
   featured?: boolean
-  contact?: { label: string; href: string }
 }
 
 function formatNumber(n?: number) {
@@ -71,7 +68,7 @@ export default function InfluencerPage() {
           id, slug, name, display_name, image_url,
           instagram_url, tiktok_url, whatsapp_url,
           followers_instagram, followers_tiktok, followers_whatsapp,
-          tags, featured, contact_label, contact_href, sort_order
+          tags, featured, sort_order
         `,
         )
         .eq('active', true)
@@ -101,8 +98,6 @@ export default function InfluencerPage() {
         },
         tags: r.tags ?? [],
         featured: r.featured,
-        contact:
-          r.contact_label && r.contact_href ? { label: r.contact_label, href: r.contact_href } : undefined,
       }))
 
       setRows(mapped)
@@ -142,7 +137,6 @@ export default function InfluencerPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10">
-      {/* Header (ohne CTA rechts) */}
       <div>
         <p className="text-sm font-medium text-gray-500">Bonus-Nest Partner</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Unsere Influencer</h1>
@@ -160,7 +154,6 @@ export default function InfluencerPage() {
         {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
       </div>
 
-      {/* Controls */}
       <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <input
           value={query}
@@ -184,7 +177,6 @@ export default function InfluencerPage() {
         </div>
       </div>
 
-      {/* Loading */}
       {loading ? (
         <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
@@ -198,7 +190,6 @@ export default function InfluencerPage() {
         </div>
       ) : (
         <>
-          {/* Featured */}
           {featured.length > 0 && (
             <section className="mt-8">
               <div className="mb-3 flex items-center justify-between">
@@ -206,7 +197,7 @@ export default function InfluencerPage() {
                 <span className="text-xs text-gray-500">Top-Reichweite</span>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr items-stretch">
                 {featured.map((i) => (
                   <InfluencerCard key={i.id} i={i} />
                 ))}
@@ -214,11 +205,10 @@ export default function InfluencerPage() {
             </section>
           )}
 
-          {/* All */}
           <section className="mt-8">
             {featured.length > 0 && <h2 className="mb-3 text-sm font-bold tracking-wide text-gray-900">Alle</h2>}
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr items-stretch">
               {rest.map((i) => (
                 <InfluencerCard key={i.id} i={i} />
               ))}
@@ -234,7 +224,6 @@ export default function InfluencerPage() {
         </>
       )}
 
-      {/* Footer CTA */}
       <div className="mt-10 rounded-2xl border border-gray-200 bg-gray-900 p-6 text-white shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -267,85 +256,73 @@ function InfluencerCard({ i }: { i: Influencer }) {
   const total = totalFollowers(i)
 
   return (
-    <article className="h-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md flex flex-col">
-      {/* Header Row */}
-      <div className="flex items-start gap-4">
-        <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shrink-0">
-          <Image src={i.image} alt={`${i.displayName} – Profilbild`} fill sizes="64px" className="object-cover" />
-        </div>
+    <article className="h-full rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md overflow-hidden">
+      {/* Content */}
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shrink-0">
+            <Image src={i.image} alt={`${i.displayName} – Profilbild`} fill sizes="64px" className="object-cover" />
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-lg font-bold text-gray-900">{i.displayName}</h3>
-                {i.featured && (
-                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
-                    Featured
-                  </span>
-                )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-lg font-bold text-gray-900">{i.displayName}</h3>
+                  {i.featured && (
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
+                      Featured
+                    </span>
+                  )}
+                </div>
+                <p className="truncate text-sm text-gray-600">{i.name ? i.name : 'Creator'}</p>
               </div>
-              <p className="truncate text-sm text-gray-600">{i.name ? i.name : 'Creator'}</p>
+
+              <div className="rounded-xl bg-gray-50 px-3 py-2 text-right shrink-0">
+                <p className="text-[11px] font-medium text-gray-500">Gesamt</p>
+                <p className="text-sm font-bold text-gray-900">{formatNumber(total)}</p>
+              </div>
             </div>
 
-            <div className="rounded-xl bg-gray-50 px-3 py-2 text-right shrink-0">
-              <p className="text-[11px] font-medium text-gray-500">Gesamt</p>
-              <p className="text-sm font-bold text-gray-900">{formatNumber(total)}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {i.tags.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700"
+                >
+                  {t}
+                </span>
+              ))}
             </div>
-          </div>
-
-          {/* Tags */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {i.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700"
-              >
-                {t}
-              </span>
-            ))}
           </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-        <Stat label="Instagram" value={i.followers.instagram} />
-        <Stat label="TikTok" value={i.followers.tiktok} />
-        <Stat label="WhatsApp" value={i.followers.whatsapp} />
-      </div>
+      {/* Fixed bottom area (same height on every card) */}
+      <div className="px-5 pb-5">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+          <Stat label="Instagram" value={i.followers.instagram} />
+          <Stat label="TikTok" value={i.followers.tiktok} />
+          <Stat label="WhatsApp" value={i.followers.whatsapp} />
+        </div>
 
-      {/* Spacer makes action row align across cards */}
-      <div className="flex-1" />
-
-      {/* Social Buttons */}
-      <div className="mt-5 flex flex-wrap gap-2">
-        {i.instagramUrl && (
-          <a href={i.instagramUrl} target="_blank" rel="noreferrer" className={socialBtn('instagram')}>
-            Instagram
-          </a>
-        )}
-        {i.tiktokUrl && (
-          <a href={i.tiktokUrl} target="_blank" rel="noreferrer" className={socialBtn('tiktok')}>
-            TikTok
-          </a>
-        )}
-        {i.whatsappUrl && (
-          <a href={i.whatsappUrl} target="_blank" rel="noreferrer" className={socialBtn('whatsapp')}>
-            WhatsApp
-          </a>
-        )}
-
-        {i.contact?.href && (
-          <a
-            href={i.contact.href}
-            target={i.contact.href.startsWith('mailto:') ? undefined : '_blank'}
-            rel={i.contact.href.startsWith('mailto:') ? undefined : 'noreferrer'}
-            className="ml-auto inline-flex items-center justify-center rounded-xl bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
-          >
-            {i.contact.label}
-          </a>
-        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {i.instagramUrl && (
+            <a href={i.instagramUrl} target="_blank" rel="noreferrer" className={socialBtn('instagram')}>
+              Instagram
+            </a>
+          )}
+          {i.tiktokUrl && (
+            <a href={i.tiktokUrl} target="_blank" rel="noreferrer" className={socialBtn('tiktok')}>
+              TikTok
+            </a>
+          )}
+          {i.whatsappUrl && (
+            <a href={i.whatsappUrl} target="_blank" rel="noreferrer" className={socialBtn('whatsapp')}>
+              WhatsApp
+            </a>
+          )}
+        </div>
       </div>
     </article>
   )
@@ -372,6 +349,5 @@ function socialBtn(kind: 'instagram' | 'tiktok' | 'whatsapp') {
     return `${base} bg-[#111827] border-[#0b1220] text-white hover:bg-black`
   }
 
-  // Instagram: simpler gradient look without extra libs
   return `${base} text-white border-transparent hover:brightness-95 bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#515bd4]`
 }
