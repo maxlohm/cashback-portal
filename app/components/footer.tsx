@@ -24,14 +24,11 @@ export default function Footer() {
 
     checkUser()
 
-    // Login/Logout mitbekommen
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!isMounted) return
-        setLoggedIn(!!session?.user)
-        setLoadingAuth(false)
-      },
-    )
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return
+      setLoggedIn(!!session?.user)
+      setLoadingAuth(false)
+    })
 
     return () => {
       isMounted = false
@@ -53,6 +50,11 @@ export default function Footer() {
             <li>
               <Link href="/" className="hover:underline">
                 Zur Startseite
+              </Link>
+            </li>
+            <li>
+              <Link href="/influencer" className="hover:underline">
+                Influencer
               </Link>
             </li>
           </ul>
@@ -97,7 +99,6 @@ export default function Footer() {
               </>
             )}
 
-            {/* Werde Partner: IMMER angezeigt */}
             <li>
               <Link href="/partner" className="hover:underline">
                 Werde Partner
@@ -149,10 +150,7 @@ export default function Footer() {
               <br />
               20146 Hamburg
             </p>
-            <a
-              href="mailto:info@bonus-nest.de"
-              className="hover:underline text-[#0077b6] break-all"
-            >
+            <a href="mailto:info@bonus-nest.de" className="hover:underline text-[#0077b6] break-all">
               info@bonus-nest.de
             </a>
           </address>

@@ -43,12 +43,9 @@ export default function Header() {
 
         setLoggedIn(true)
 
-        // Admin-Check (robust)
         const { data: isAdminData } = await supabase.rpc('is_admin')
         const admin = parseIsAdmin(isAdminData)
 
-        // Partner-Check (nur echte Partner aus partners Tabelle)
-        // Admin zählt nachher trotzdem als "Partner" für Menü-Link
         const { data: partner } = await supabase
           .from('partners')
           .select('id')
@@ -58,7 +55,7 @@ export default function Header() {
         if (!alive) return
 
         setIsAdmin(admin)
-        setIsPartner(!!partner || admin) // ✅ Admin sieht Partner-Dashboard
+        setIsPartner(!!partner || admin)
       } catch {
         if (!alive) return
         setLoggedIn(false)
@@ -110,6 +107,11 @@ export default function Header() {
                 Angebote
               </Link>
 
+              {/* ✅ Immer sichtbar (auch ohne Login) */}
+              <Link href="/influencer" className="block px-4 py-2 hover:bg-gray-100">
+                Influencer
+              </Link>
+
               {!loadingAuth && loggedIn && (
                 <>
                   <Link href="/profil-bearbeiten" className="block px-4 py-2 hover:bg-gray-100">
@@ -128,15 +130,16 @@ export default function Header() {
 
                   {isAdmin && (
                     <>
-                      <div className="px-4 pt-2 text-xs text-gray-500 border-t mt-2">
-                        Admin
-                      </div>
+                      <div className="px-4 pt-2 text-xs text-gray-500 border-t mt-2">Admin</div>
 
                       <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
                         Admin-Dashboard
                       </Link>
 
-                      <Link href="/admin/partner-applications" className="block px-4 py-2 hover:bg-gray-100">
+                      <Link
+                        href="/admin/partner-applications"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
                         Partner-Bewerbungen
                       </Link>
 
@@ -144,7 +147,10 @@ export default function Header() {
                         Partner-Verwaltung
                       </Link>
 
-                      <Link href="/admin/influencer-payout" className="block px-4 py-2 hover:bg-gray-100">
+                      <Link
+                        href="/admin/influencer-payout"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
                         Influencer-Abrechnung
                       </Link>
 
@@ -181,6 +187,11 @@ export default function Header() {
                     <Link href="/register" className="block px-4 py-2 hover:bg-gray-100">
                       Registrieren
                     </Link>
+
+                    {/* Optional: auch ohne Login sichtbar */}
+                    <Link href="/partner" className="block px-4 py-2 hover:bg-gray-100">
+                      Werde Partner
+                    </Link>
                   </>
                 ))}
             </div>
@@ -190,7 +201,6 @@ export default function Header() {
 
       {/* Header-Inhalte */}
       <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
-        {/* Logo */}
         <div className="w-36 sm:w-40 md:w-44">
           <Link href="/">
             <Image
@@ -205,7 +215,6 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Schriftzug */}
         <div className="w-52 sm:w-80 md:w-[360px] lg:w-[400px]">
           <Image
             src="/Logo_Schrift.png"
@@ -218,7 +227,6 @@ export default function Header() {
           />
         </div>
 
-        {/* Maus */}
         <div className="hidden sm:block w-36 md:w-44 -mt-4">
           <Image
             src="/LogoMouse_rechts_Retusche.webp"
