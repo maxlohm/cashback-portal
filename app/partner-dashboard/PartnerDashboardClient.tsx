@@ -20,7 +20,7 @@ type Stats = {
 
 type LeadRow = {
   id: string
-  amount: number | null
+  amount: number | null // Netzwerkbetrag (lead.amount)
   confirmed: boolean
   payout_ready: boolean | null
   confirmed_at: string | null
@@ -40,13 +40,27 @@ type RedemptionRow = {
 }
 
 type SeriesPoint = { d: string; amount: number }
-type Offer = { id: string; title: string; slug: string }
+
+type Offer = {
+  id: string
+  title: string
+  slug: string
+  reward_amount: number | null // User-Cashback
+  network_payout_amount: number | null // Netzwerkbetrag
+}
 
 type PartnerInfo = {
   id: string
   slug: string | null
-  commission_rate: number | null
   name?: string | null
+
+  // Legacy/fallback
+  commission_rate: number | null
+
+  // New (preferred)
+  commission_rate_base: number | null
+  commission_rate_promo: number | null
+  commission_promo_until: string | null // timestamptz
 }
 
 type OfferPerfRow = {
@@ -56,6 +70,12 @@ type OfferPerfRow = {
   leads: number
   cr: number
   revenue: number
+}
+
+type NewUsersStats = {
+  today: number
+  yesterday: number
+  last_7_days: number
 }
 
 const fmtEUR = (n: number) => `${Number(n || 0).toFixed(2)} €`
@@ -70,6 +90,9 @@ function addDays(d: Date, days: number) {
   const x = new Date(d)
   x.setDate(x.getDate() + days)
   return x
+}
+function round2(n: number) {
+  return Math.round(n * 100) / 100
 }
 
 export default function PartnerDashboardClient() {
@@ -102,6 +125,7 @@ export default function PartnerDashboardClient() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
+  const [newUsers, setNewUsers] = useState<NewUsersStats | null>(null)
 
   // UI
   const [loading, setLoading] = useState(true)
@@ -127,19 +151,6 @@ export default function PartnerDashboardClient() {
     return process.env.NEXT_PUBLIC_SITE_URL || ''
   }, [])
 
-  // Zeitraum: customTo wird "inklusive" interpretiert, DB-Query nutzt toDate exclusive (= customTo + 1 Tag)
-  const { fromDate, toDate } = useMemo(() => {
-    if (month === 'all') return { fromDate: null, toDate: null }
-    if (month === 'custom') {
-      const fd = customFrom ? new Date(customFrom) : null
-      const tdRaw = customTo ? new Date(customTo) : null
-      const td = tdRaw ? addDays(tdRaw, 1) : null // exclusive
-      return { fromDate: fd, toDate: td }
-    }
-    const [y, m] = month.split('-').map(Number)
-    return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) } // exclusive
-  }, [month, customFrom, customTo])
-
   const showToast = (msg: string) => {
     setToast(msg)
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -155,6 +166,19 @@ export default function PartnerDashboardClient() {
       showToast('Kopieren fehlgeschlagen')
     }
   }
+
+  // Zeitraum: customTo inklusiv, Query toDate exklusiv (= customTo + 1 Tag)
+  const { fromDate, toDate } = useMemo(() => {
+    if (month === 'all') return { fromDate: null, toDate: null }
+    if (month === 'custom') {
+      const fd = customFrom ? new Date(customFrom) : null
+      const tdRaw = customTo ? new Date(customTo) : null
+      const td = tdRaw ? addDays(tdRaw, 1) : null // exclusive
+      return { fromDate: fd, toDate: td }
+    }
+    const [y, m] = month.split('-').map(Number)
+    return { fromDate: new Date(y, m - 1, 1), toDate: new Date(y, m, 1) } // exclusive
+  }, [month, customFrom, customTo])
 
   // Quick-range: setzt Custom Range
   const applyQuickRange = (kind: '24h' | '7d') => {
@@ -173,7 +197,54 @@ export default function PartnerDashboardClient() {
     setCustomTo(toISODate(end))
   }
 
-  // Offer suggestions (autocomplete) - from OFFERS (not advertisers)
+  // Effektiver Provisionssatz (Promo > Base > Legacy)
+  const effectiveCommission = useMemo(() => {
+    const p = partnerInfo
+    if (!p) return { rate: null as number | null, label: '—' }
+
+    const now = new Date()
+    const promoUntil = p.commission_promo_until ? new Date(p.commission_promo_until) : null
+    const promoActive =
+      p.commission_rate_promo != null && promoUntil != null && now.getTime() < promoUntil.getTime()
+
+    const rate =
+      promoActive
+        ? Number(p.commission_rate_promo)
+        : p.commission_rate_base != null
+        ? Number(p.commission_rate_base)
+        : p.commission_rate != null
+        ? Number(p.commission_rate)
+        : null
+
+    const label = promoActive ? 'Promo' : p.commission_rate_base != null ? 'Base' : 'Rate'
+    return { rate: rate != null ? Number(rate) : null, label }
+  }, [partnerInfo])
+
+  // Provision pro Lead (Preview) aus Offer + effektivem Satz:
+  // (network_payout_amount - reward_amount) * rate
+  const commissionPerLeadForOffer = useMemo(() => {
+    const rate = effectiveCommission.rate
+    if (rate == null) return (_offer: Offer | null) => null
+
+    return (offer: Offer | null) => {
+      if (!offer) return null
+      const net = Number(offer.network_payout_amount || 0)
+      const userCashback = Number(offer.reward_amount || 0)
+      const margin = net - userCashback
+      return round2(Math.max(0, margin * rate))
+    }
+  }, [effectiveCommission.rate])
+
+  const promoOffer = useMemo(() => {
+    if (!promoOfferSlug) return null
+    return offers.find(o => o.slug === promoOfferSlug) ?? null
+  }, [offers, promoOfferSlug])
+
+  const promoCommission = useMemo(() => {
+    return commissionPerLeadForOffer(promoOffer)
+  }, [commissionPerLeadForOffer, promoOffer])
+
+  // Offer suggestions (autocomplete)
   const offerSuggestions = useMemo(() => {
     const q = qOffer.trim().toLowerCase()
     if (!q) return []
@@ -206,10 +277,12 @@ export default function PartnerDashboardClient() {
         return
       }
 
-      // partners: id, slug, commission_rate, name
+      // partners: id, slug, commission_* + name
       const { data: ptn, error: ptnErr } = await supabase
         .from('partners')
-        .select('id, slug, commission_rate, name')
+        .select(
+          'id, slug, name, commission_rate, commission_rate_base, commission_rate_promo, commission_promo_until',
+        )
         .eq('user_id', uid)
         .maybeSingle()
 
@@ -222,19 +295,27 @@ export default function PartnerDashboardClient() {
             ? {
                 id: (ptn as any).id,
                 slug: (ptn as any).slug ?? null,
-                commission_rate:
-                  (ptn as any).commission_rate != null
-                    ? Number((ptn as any).commission_rate)
-                    : null,
                 name: (ptn as any).name ?? null,
+                commission_rate:
+                  (ptn as any).commission_rate != null ? Number((ptn as any).commission_rate) : null,
+                commission_rate_base:
+                  (ptn as any).commission_rate_base != null
+                    ? Number((ptn as any).commission_rate_base)
+                    : null,
+                commission_rate_promo:
+                  (ptn as any).commission_rate_promo != null
+                    ? Number((ptn as any).commission_rate_promo)
+                    : null,
+                commission_promo_until: (ptn as any).commission_promo_until ?? null,
               }
             : null,
         )
       }
 
+      // Offers: reward_amount + network_payout_amount fürs Preview
       const { data: off, error: offErr } = await supabase
         .from('offers')
-        .select('id,title,slug,active,created_at')
+        .select('id,title,slug,active,created_at,reward_amount,network_payout_amount')
         .eq('active', true)
         .order('created_at', { ascending: false })
 
@@ -247,13 +328,15 @@ export default function PartnerDashboardClient() {
         id: o.id as string,
         title: o.title as string,
         slug: o.slug as string,
+        reward_amount: o.reward_amount != null ? Number(o.reward_amount) : null,
+        network_payout_amount: o.network_payout_amount != null ? Number(o.network_payout_amount) : null,
       }))
       setOffers(list)
       setPromoOfferSlug(list[0]?.slug ?? null)
     })()
   }, [supabase])
 
-  /** Load clicks per offer (for performance table) */
+  /** Load clicks per offer */
   const refreshClicks = async (
     partnerId: string,
     fromISO: string | null,
@@ -300,16 +383,17 @@ export default function PartnerDashboardClient() {
         return data as T
       }
 
-      const [statsData, leadsData, tsData, redData] = await Promise.all([
-        rpc<Stats>('get_partner_stats'),
-        rpc<any[]>('get_partner_leads', leadParams),
-        rpc<any[]>('get_partner_revenue_timeseries', tsParams),
-        rpc<RedemptionRow[]>('get_user_redemptions'),
-      ])
+      const [statsData, leadsData, tsData, redData, newUsersData] =
+        await Promise.all([
+          rpc<Stats>('get_partner_stats'),
+          rpc<any[]>('get_partner_leads', leadParams),
+          rpc<any[]>('get_partner_revenue_timeseries', tsParams),
+          rpc<RedemptionRow[]>('get_user_redemptions'),
+          rpc<NewUsersStats>('get_partner_new_users_stats').catch(() => null as any),
+        ])
 
       setStats(statsData)
 
-      // Apply offer filter client-side (no DB change needed)
       const rawLeads: LeadRow[] = (leadsData ?? []).map((r: any) => ({ ...r }))
       const filteredLeads = selectedOfferId
         ? rawLeads.filter(l => l.offer_id === selectedOfferId)
@@ -323,8 +407,8 @@ export default function PartnerDashboardClient() {
         })),
       )
       setRedemptions(redData ?? [])
+      setNewUsers(newUsersData ?? null)
 
-      // Clicks per offer (respects offer filter)
       if (partnerInfo?.id) {
         await refreshClicks(
           partnerInfo.id,
@@ -348,7 +432,6 @@ export default function PartnerDashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, month, customFrom, customTo, partnerInfo?.id, selectedOfferId])
 
-  // KPIs are now based on filtered leads + filtered clicksByOffer
   const totalClicksFiltered = useMemo(() => {
     return Object.values(clicksByOffer).reduce((a, b) => a + Number(b || 0), 0)
   }, [clicksByOffer])
@@ -426,7 +509,6 @@ export default function PartnerDashboardClient() {
       })
     }
 
-    // Sort
     rows.sort((a, b) => {
       if (perfSort === 'clicks') return b.clicks - a.clicks
       if (perfSort === 'leads') return b.leads - a.leads
@@ -488,18 +570,35 @@ export default function PartnerDashboardClient() {
       {/* Commission Banner */}
       <div className="bg-white border rounded p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div>
-          <div className="text-xs text-gray-500">Dein Provisionssatz</div>
+          <div className="text-xs text-gray-500">Dein Provisionssatz ({effectiveCommission.label})</div>
           <div className="text-lg font-semibold">
-            {partnerInfo?.commission_rate != null
-              ? fmtPct(partnerInfo.commission_rate)
-              : '—'}
+            {effectiveCommission.rate != null ? fmtPct(effectiveCommission.rate) : '—'}
           </div>
           <div className="text-xs text-gray-500">
-            Anteil an der Marge: (Netzwerkbetrag − User-Cashback) × Provisionssatz
+            Provision/Lead = (Netzwerkbetrag − User-Cashback) × Provisionssatz
           </div>
         </div>
         <div className="text-xs text-gray-500">
           {partnerInfo?.name ? `Partner: ${partnerInfo.name}` : ''}
+        </div>
+      </div>
+
+      {/* Neukunden */}
+      <div className="bg-white border rounded p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold">Neukunden</div>
+            <div className="text-xs text-gray-500">
+              Neue Registrierungen mit deinem Ref (profiles.partner_id)
+            </div>
+          </div>
+          {!newUsers && <div className="text-xs text-gray-500">(RPC fehlt)</div>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <Kpi title="Heute" value={newUsers?.today ?? '—'} />
+          <Kpi title="Gestern" value={newUsers?.yesterday ?? '—'} />
+          <Kpi title="Letzte 7 Tage" value={newUsers?.last_7_days ?? '—'} />
         </div>
       </div>
 
@@ -518,11 +617,7 @@ export default function PartnerDashboardClient() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col md:flex-row gap-2 md:items-center">
             <label className="text-sm w-44">Landing-Link</label>
-            <input
-              className="flex-1 border rounded px-3 py-2 text-sm"
-              readOnly
-              value={landingLink}
-            />
+            <input className="flex-1 border rounded px-3 py-2 text-sm" readOnly value={landingLink} />
             <button
               className="px-3 py-2 border rounded bg-white text-sm hover:bg-gray-50 active:scale-[0.98] transition disabled:opacity-60"
               onClick={() => copy(landingLink, 'Landing-Link kopiert')}
@@ -541,11 +636,15 @@ export default function PartnerDashboardClient() {
               onChange={e => setPromoOfferSlug(e.target.value)}
               disabled={offers.length === 0}
             >
-              {offers.map(o => (
-                <option key={o.id} value={o.slug}>
-                  {o.title}
-                </option>
-              ))}
+              {offers.map(o => {
+                const c = commissionPerLeadForOffer(o)
+                const cTxt = c == null ? '—' : fmtEUR(c)
+                return (
+                  <option key={o.id} value={o.slug}>
+                    {o.title} · {cTxt} / Lead
+                  </option>
+                )
+              })}
             </select>
 
             <input
@@ -563,6 +662,13 @@ export default function PartnerDashboardClient() {
             </button>
           </div>
 
+          <div className="text-xs text-gray-600">
+            Provision pro Lead:{' '}
+            <span className="font-semibold">
+              {promoCommission == null ? '—' : fmtEUR(promoCommission)}
+            </span>
+          </div>
+
           <p className="text-xs text-gray-500">
             Tracking passiert beim Klick auf „Jetzt Angebot sichern“.
           </p>
@@ -578,84 +684,50 @@ export default function PartnerDashboardClient() {
         <Kpi title="Einnahmen gesamt" value={fmtEUR(stats?.total_earnings ?? 0)} />
       </div>
 
-      {/* GLOBAL FILTER BAR (everything in one row) */}
+      {/* GLOBAL FILTER BAR */}
       <div className="bg-white border rounded p-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Status */}
           {(['all', 'open', 'confirmed', 'ready'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-2 rounded border text-sm ${
-                statusFilter === s
-                  ? 'bg-[#003b5b] text-white'
-                  : 'bg-white hover:bg-gray-50'
+                statusFilter === s ? 'bg-[#003b5b] text-white' : 'bg-white hover:bg-gray-50'
               }`}
             >
-              {s === 'all'
-                ? 'Alle'
-                : s === 'open'
-                ? 'Offen'
-                : s === 'confirmed'
-                ? 'Bestätigt'
-                : 'Auszahlbar'}
+              {s === 'all' ? 'Alle' : s === 'open' ? 'Offen' : s === 'confirmed' ? 'Bestätigt' : 'Auszahlbar'}
             </button>
           ))}
 
           <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
 
-          {/* Quick ranges */}
-          <button
-            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
-            onClick={() => applyQuickRange('24h')}
-          >
+          <button className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50" onClick={() => applyQuickRange('24h')}>
             Letzte 24h
           </button>
-          <button
-            className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50"
-            onClick={() => applyQuickRange('7d')}
-          >
+          <button className="px-3 py-2 border rounded text-sm bg-white hover:bg-gray-50" onClick={() => applyQuickRange('7d')}>
             Letzte 7 Tage
           </button>
 
           <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
 
-          {/* Month / custom */}
-          <select
-            className="border rounded px-2 py-2 text-sm bg-white"
-            value={month}
-            onChange={e => setMonth(e.target.value)}
-          >
+          <select className="border rounded px-2 py-2 text-sm bg-white" value={month} onChange={e => setMonth(e.target.value)}>
             <option value="all">Alle Monate</option>
             {last12.map(m => (
-              <option key={m} value={m}>
-                {m}
-              </option>
+              <option key={m} value={m}>{m}</option>
             ))}
             <option value="custom">Benutzerdefiniert…</option>
           </select>
 
           {month === 'custom' && (
             <>
-              <input
-                type="date"
-                className="border rounded px-2 py-2 text-sm"
-                value={customFrom}
-                onChange={e => setCustomFrom(e.target.value)}
-              />
+              <input type="date" className="border rounded px-2 py-2 text-sm" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
               <span className="text-sm text-gray-500">bis</span>
-              <input
-                type="date"
-                className="border rounded px-2 py-2 text-sm"
-                value={customTo}
-                onChange={e => setCustomTo(e.target.value)}
-              />
+              <input type="date" className="border rounded px-2 py-2 text-sm" value={customTo} onChange={e => setCustomTo(e.target.value)} />
             </>
           )}
 
           <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
 
-          {/* Offer autocomplete filter */}
           <div className="relative min-w-[240px]">
             <input
               className="border rounded px-3 py-2 text-sm bg-white w-full"
@@ -694,7 +766,6 @@ export default function PartnerDashboardClient() {
 
           <div className="mx-1 h-7 w-px bg-gray-200 hidden md:block" />
 
-          {/* Table sort */}
           <select
             className="border rounded px-2 py-2 text-sm bg-white"
             value={perfSort}
