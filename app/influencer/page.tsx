@@ -269,11 +269,6 @@ function InfluencerCard({ i }: { i: Influencer }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate text-lg font-bold text-gray-900">{i.displayName}</h3>
-                  {i.featured && (
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
-                      Featured
-                    </span>
-                  )}
                 </div>
                 <p className="truncate text-sm text-gray-600">{i.name ? i.name : 'Creator'}</p>
               </div>
@@ -284,14 +279,14 @@ function InfluencerCard({ i }: { i: Influencer }) {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex gap-2 overflow-x-auto whitespace-nowrap pb-1">
               {i.tags.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700"
-                >
-                  {t}
-                </span>
+               <span
+  key={t}
+  className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700"
+>
+  {t}
+</span>
               ))}
             </div>
           </div>
