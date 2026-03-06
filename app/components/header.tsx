@@ -164,6 +164,14 @@ export default function Header() {
                       <Link href="/admin/users" className="block px-4 py-2 hover:bg-gray-100">
                         Nutzerverwaltung
                       </Link>
+
+                      {/* NEU */}
+                      <Link
+                        href="/admin/new-users"
+                        className="block px-4 py-2 hover:bg-gray-100"
+                      >
+                        Neukunden Übersicht
+                      </Link>
                     </>
                   )}
                 </>
