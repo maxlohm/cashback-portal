@@ -24,14 +24,11 @@ export default async function OfferPage(props: any) {
       ? await props.searchParams
       : props?.searchParams
 
-  // ref kommt aus URL: /angebot/<id>?ref=<partners.id>
   const refRaw = (sp?.ref as string | undefined) ?? null
   const refId = refRaw && UUIDV4.test(refRaw) ? refRaw : null
 
   if (!id) return <div className="max-w-3xl mx-auto p-6">Ungültige URL.</div>
 
-  // ✅ Ref-Persistence + Last-Click-Lock:
-  // Setze bn_ref nur, wenn noch nicht vorhanden (überschreibt keinen bestehenden Influencer).
   const cookieStore = cookies()
   const existing = cookieStore.get('bn_ref')?.value ?? null
   if (refId && !existing) {
@@ -66,7 +63,7 @@ export default async function OfferPage(props: any) {
   const reviewCount = Number(ratingRow?.review_count ?? 0)
 
   const img = offer.image || offer.image_url || '/placeholder.png'
-  const terms = offer.terms
+  const terms = typeof offer.terms === 'string' ? offer.terms.trim() : ''
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 md:py-12">
@@ -97,8 +94,6 @@ export default async function OfferPage(props: any) {
           Prämie:&nbsp;{fmt(offer.reward_amount ?? 0)}
         </span>
 
-        {/* ref aus /angebot/... wird an /r weitergereicht (falls vorhanden).
-            Attribution bleibt aber auch ohne ref stabil, weil bn_ref Cookie gesetzt ist. */}
         <GoToOfferButton offerId={offer.id} refId={refId} />
       </div>
 
@@ -123,12 +118,12 @@ export default async function OfferPage(props: any) {
         </h2>
 
         <div className="mt-4 rounded-2xl border bg-white p-5">
-          {typeof terms === 'string' && terms.trim().length > 0 ? (
-            <div className="prose prose-sm max-w-none text-gray-700">
+          {terms ? (
+            <div className="text-gray-700 text-sm leading-7 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mb-3 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-2 [&_li]:pl-1">
               <ReactMarkdown>{terms}</ReactMarkdown>
             </div>
           ) : (
-            <div className="space-y-2 text-gray-700">
+            <div className="space-y-2 text-gray-700 text-sm">
               <p>Die Teilnahmebedingungen folgen.</p>
             </div>
           )}
