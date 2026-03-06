@@ -78,11 +78,16 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   reward: Number(row.reward_amount ?? 0),
 
   providerBonusAmount:
-    typeof row.provider_bonus_amount === 'number'
+    row.provider_bonus_amount !== null &&
+    row.provider_bonus_amount !== undefined
       ? Number(row.provider_bonus_amount)
-      : row.provider_bonus_amount ?? null,
+      : null,
 
-  providerBonusText: row.provider_bonus_text ?? null,
+  providerBonusText:
+    row.provider_bonus_text !== null &&
+    row.provider_bonus_text !== undefined
+      ? row.provider_bonus_text
+      : null,
 
   image: row.image_url ?? null,
   affiliateUrl: row.affiliate_url ?? null,
@@ -93,14 +98,14 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   active: row.active ?? true,
 
   avgRating:
-    typeof row.avg_rating === 'number'
+    row.avg_rating !== null && row.avg_rating !== undefined
       ? Number(row.avg_rating)
-      : row.avg_rating ?? null,
+      : null,
 
   reviewCount:
-    typeof row.review_count === 'number'
+    row.review_count !== null && row.review_count !== undefined
       ? Number(row.review_count)
-      : Number(row.review_count ?? 0),
+      : 0,
 
   latestReviewTitle: row.latest_review_title ?? null,
   latestReviewComment: row.latest_review_comment ?? null,
