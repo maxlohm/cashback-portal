@@ -35,33 +35,35 @@ export type Offer = {
   categories: OfferCategory[]
   terms?: string | null
   active?: boolean
+
+  /** Reviews */
+  avgRating?: number | null
+  reviewCount?: number
+  latestReviewTitle?: string | null
+  latestReviewComment?: string | null
 }
 
 /* =========================================
-   DB-Rohdatensatz aus public.offers
+   DB-Rohdatensatz aus RPC
 ========================================= */
 
 export type DbOffer = {
   id: string
   title: string
   description: string | null
-
   reward_amount: number | null
-
-  // NEU:
   provider_bonus_amount?: number | null
   provider_bonus_text?: string | null
-
-  advertiser_id: string | null
-  active: boolean
   category: string | null
   image_url?: string | null
   affiliate_url?: string | null
-  created_at: string
   terms?: string | null
+  active?: boolean
 
-  // OPTIONAL (nicht überall genutzt, aber existiert bei dir im Schema)
-  tracking_url_base?: string | null
+  avg_rating?: number | null
+  review_count?: number | null
+  latest_review_title?: string | null
+  latest_review_comment?: string | null
 }
 
 /* =========================================
@@ -88,15 +90,21 @@ const mapDbToOffer = (row: DbOffer): Offer => ({
   categories: row.category ? [row.category as OfferCategory] : [],
 
   terms: row.terms ?? null,
-  active: row.active,
+  active: row.active ?? true,
+
+  avgRating:
+    typeof row.avg_rating === 'number'
+      ? Number(row.avg_rating)
+      : row.avg_rating ?? null,
+
+  reviewCount:
+    typeof row.review_count === 'number'
+      ? Number(row.review_count)
+      : Number(row.review_count ?? 0),
+
+  latestReviewTitle: row.latest_review_title ?? null,
+  latestReviewComment: row.latest_review_comment ?? null,
 })
-
-/* =========================================
-   Basis-Select
-========================================= */
-
-const baseSelect =
-  'id, title, description, reward_amount, provider_bonus_amount, provider_bonus_text, advertiser_id, active, category, image_url, affiliate_url, created_at, terms'
 
 /* =========================================
    Alle aktiven Offers
@@ -108,15 +116,11 @@ export async function getActiveOffers(
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
 
-  const { data, error } = await supabase
-    .from('offers')
-    .select(baseSelect)
-    .eq('active', true)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  const { data, error } = await supabase.rpc('get_active_offers_with_reviews')
 
   if (error) throw error
-  return (data as DbOffer[]).map(mapDbToOffer)
+
+  return ((data as DbOffer[]) ?? []).slice(0, limit).map(mapDbToOffer)
 }
 
 /* =========================================
@@ -130,16 +134,16 @@ export async function getActiveOffersByCategories(
 ): Promise<Offer[]> {
   const { limit = 100 } = opts
 
-  const { data, error } = await supabase
-    .from('offers')
-    .select(baseSelect)
-    .eq('active', true)
-    .in('category', categories)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  const offers = await getActiveOffers(supabase, { limit: 500 })
 
-  if (error) throw error
-  return (data as DbOffer[]).map(mapDbToOffer)
+  const filtered =
+    categories.length > 0
+      ? offers.filter(offer =>
+          offer.categories.some(cat => categories.includes(cat)),
+        )
+      : offers
+
+  return filtered.slice(0, limit)
 }
 
 /* =========================================
@@ -150,14 +154,8 @@ export async function getOfferById(
   supabase: SupabaseClient,
   id: string,
 ): Promise<Offer | null> {
-  const { data, error } = await supabase
-    .from('offers')
-    .select(baseSelect)
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapDbToOffer(data as DbOffer) : null
+  const offers = await getActiveOffers(supabase, { limit: 500 })
+  return offers.find(o => o.id === id) ?? null
 }
 
 /* =========================================
@@ -170,8 +168,6 @@ type SubIdParts = {
   influencerId?: string | null
   subId?: string | null
   clickToken?: string | null
-
-  // NEU: für communicationAds deeplink
   targetUrl?: string | null
 }
 
@@ -203,9 +199,6 @@ function detectSubIdParam(hostname: string): 'clickref' | 'subid' | 'smc1' {
 }
 
 function isCommunicationAdsUrl(u: URL) {
-  // Generator liefert Links wie:
-  // https://amt.octopusenergy.de/tc.php?t=...&subid=...&deeplink=...
-  // Sicherer Indikator: /tc.php
   return u.pathname.toLowerCase().endsWith('/tc.php')
 }
 
@@ -219,35 +212,27 @@ export function buildAffiliateUrl(
   try {
     const u = new URL(baseUrl)
 
-    // communicationAds Spezialfall: subid + deeplink
     if (isCommunicationAdsUrl(u)) {
       const token = buildSubId(parts)
 
-      // commAds nutzt "subid"
       u.searchParams.set('subid', token)
 
-      // commAds braucht deeplink (echte Ziel-URL)
       const target = (parts.targetUrl || '').trim()
       if (target.length > 0) {
         u.searchParams.set('deeplink', target)
       }
 
-      // KEINE zusätzlichen internen Parameter (uid/oid/ref),
-      // damit commAds nicht wegen "unknown params" rumzickt.
       return u.toString()
     }
 
-    // 1) SubID setzen (FinanceAds/AWIN/Belboon wie gehabt)
     const key = detectSubIdParam(u.hostname)
     const token = buildSubId(parts)
     u.searchParams.set(key, token)
 
-    // 2) Optional Influencer separat übergeben
     if (parts.influencerId) {
       u.searchParams.set('ref', parts.influencerId)
     }
 
-    // 3) Debug-Parameter (intern)
     u.searchParams.set('uid', parts.userId)
     u.searchParams.set('oid', parts.offerId)
 

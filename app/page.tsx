@@ -45,7 +45,6 @@ export default function AlleAngebotePage() {
 
   return (
     <div>
-      {/* Banner nur Desktop */}
       <div className="hidden md:block relative w-full h-[300px] pb-12">
         <Image
           src="/bannerrichtig.png"
@@ -56,7 +55,6 @@ export default function AlleAngebotePage() {
         />
       </div>
 
-      {/* Navigation separat */}
       <div className="w-full flex justify-center mt-16">
         <div className="max-w-6xl w-full px-4 sm:px-6 lg:px-8">
           <KategorieNavigation />
@@ -85,6 +83,10 @@ export default function AlleAngebotePage() {
                 providerBonusText={offer.providerBonusText ?? null}
                 image={offer.image ?? '/placeholder.png'}
                 url={`/angebot/${offer.id}`}
+                avgRating={offer.avgRating ?? null}
+                reviewCount={offer.reviewCount ?? 0}
+                latestReviewTitle={offer.latestReviewTitle ?? null}
+                latestReviewComment={offer.latestReviewComment ?? null}
               />
             ))}
 

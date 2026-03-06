@@ -66,7 +66,6 @@ export default function CategoryPage({
 
   return (
     <div>
-      {/* Banner nur Desktop */}
       {bannerSrc && (
         <div className="hidden md:block relative w-full h-[300px] pb-12">
           <Image
@@ -79,7 +78,6 @@ export default function CategoryPage({
         </div>
       )}
 
-      {/* Navigation – jetzt wirklich separat und weiter unten */}
       <div className="w-full flex justify-center mt-16">
         <div className="max-w-6xl w-full px-4 sm:px-6 lg:px-8">
           <KategorieNavigation />
@@ -112,6 +110,10 @@ export default function CategoryPage({
                 providerBonusText={offer.providerBonusText ?? null}
                 image={offer.image ?? '/placeholder.png'}
                 url={`/angebot/${offer.id}`}
+                avgRating={offer.avgRating ?? null}
+                reviewCount={offer.reviewCount ?? 0}
+                latestReviewTitle={offer.latestReviewTitle ?? null}
+                latestReviewComment={offer.latestReviewComment ?? null}
               />
             ))}
 

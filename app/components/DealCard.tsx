@@ -16,6 +16,12 @@ type DealCardProps = {
 
   image?: string
 
+  /** Reviews */
+  avgRating?: number | null
+  reviewCount?: number
+  latestReviewTitle?: string | null
+  latestReviewComment?: string | null
+
   /**
    * Deprecated: DealCard navigiert IMMER zur Detailseite /angebot/[id].
    * (bewusst, damit Login erst bei "Zum Angebot" auf der Detailseite passiert)
@@ -34,12 +40,15 @@ export default function DealCard({
   providerBonusAmount = null,
   providerBonusText = null,
   image = '/placeholder.png',
+  avgRating = null,
+  reviewCount = 0,
+  latestReviewTitle = null,
+  latestReviewComment = null,
   onClick,
   className = '',
 }: DealCardProps) {
   const router = useRouter()
 
-  // WICHTIG: immer nur Detailseite – nie /r
   const targetUrl = `/angebot/${id}`
 
   const go = () => {
@@ -50,10 +59,13 @@ export default function DealCard({
   const providerDisplay = (() => {
     const t = (providerBonusText ?? '').trim()
     if (t.length > 0) return t
-    if (typeof providerBonusAmount === 'number' && providerBonusAmount > 0)
+    if (typeof providerBonusAmount === 'number' && providerBonusAmount > 0) {
       return fmt(providerBonusAmount)
+    }
     return '—'
   })()
+
+  const hasReviews = Number(reviewCount || 0) > 0
 
   return (
     <article
@@ -96,6 +108,26 @@ export default function DealCard({
             </p>
           )}
         </div>
+
+        {/* Bewertungen */}
+        {hasReviews && (
+          <div className="rounded-xl border border-black/5 bg-slate-50 px-3 py-2">
+            <div className="flex items-center gap-2 text-sm text-slate-800">
+              <span className="font-semibold">
+                ⭐ {Number(avgRating || 0).toFixed(1)} / 5
+              </span>
+              <span className="text-slate-500">
+                ({reviewCount} Bewertungen)
+              </span>
+            </div>
+
+            {latestReviewComment && (
+              <p className="mt-1 text-xs text-slate-500 line-clamp-2">
+                „{latestReviewComment}“
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-auto" />
 
