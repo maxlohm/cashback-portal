@@ -90,7 +90,8 @@ export default function Header() {
 
   return (
     <header className="relative bg-[#F1E8CB] border-b border-[#d6c4a1] text-[#003b5b] z-50">
-      {/* Menü-Button */}
+
+      {/* Menü Button */}
       <div ref={menuRef} className="absolute top-4 right-4 z-50 sm:top-6 sm:right-6">
         <div className="relative">
           <button
@@ -103,11 +104,11 @@ export default function Header() {
 
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white border shadow-lg rounded-md z-50 text-right overflow-hidden text-sm">
+
               <Link href="/" className="block px-4 py-2 hover:bg-gray-100">
                 Angebote
               </Link>
 
-              {/* ✅ Immer sichtbar (auch ohne Login) */}
               <Link href="/influencer" className="block px-4 py-2 hover:bg-gray-100">
                 Influencer
               </Link>
@@ -130,7 +131,9 @@ export default function Header() {
 
                   {isAdmin && (
                     <>
-                      <div className="px-4 pt-2 text-xs text-gray-500 border-t mt-2">Admin</div>
+                      <div className="px-4 pt-2 text-xs text-gray-500 border-t mt-2">
+                        Admin
+                      </div>
 
                       <Link href="/admin/redemptions" className="block px-4 py-2 hover:bg-gray-100">
                         Admin-Dashboard
@@ -145,6 +148,10 @@ export default function Header() {
 
                       <Link href="/admin/partners" className="block px-4 py-2 hover:bg-gray-100">
                         Partner-Verwaltung
+                      </Link>
+
+                      <Link href="/admin/clicks" className="block px-4 py-2 hover:bg-gray-100">
+                        Klick-Übersicht
                       </Link>
 
                       <Link
@@ -188,7 +195,6 @@ export default function Header() {
                       Registrieren
                     </Link>
 
-                    {/* Optional: auch ohne Login sichtbar */}
                     <Link href="/partner" className="block px-4 py-2 hover:bg-gray-100">
                       Werde Partner
                     </Link>
@@ -199,8 +205,9 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Header-Inhalte */}
+      {/* Header Inhalt */}
       <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-3 sm:py-7 gap-3 sm:gap-6">
+
         <div className="w-36 sm:w-40 md:w-44">
           <Link href="/">
             <Image
@@ -238,6 +245,7 @@ export default function Header() {
             priority
           />
         </div>
+
       </div>
     </header>
   )

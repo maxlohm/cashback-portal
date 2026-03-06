@@ -21,6 +21,6 @@ export default async function PartnerLandingPage({ params }: Props) {
   if (error || !partnerId) redirect('/')
 
   // KEIN cookies().set hier!
-  // Einfach ref in die URL hängen, damit dein bestehender Flow es sauber übernimmt.
+  // Einfach ref in die URL hängen, damit dein bestehenden Flow es sauber übernimmt.
   redirect(`/?ref=${partnerId}`)
 }

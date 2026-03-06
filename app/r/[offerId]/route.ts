@@ -10,6 +10,13 @@ export const dynamic = 'force-dynamic'
 const UUIDV4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+type OfferRow = {
+  id: string
+  affiliate_url: string | null
+  tracking_url_base: string | null
+  active: boolean
+}
+
 export async function GET(req: NextRequest, context: any) {
   const supabase = createRouteHandlerClient({ cookies: nextCookies })
 
@@ -23,10 +30,13 @@ export async function GET(req: NextRequest, context: any) {
   const ref = url.searchParams.get('ref')
   const refInfluencerId = ref && UUIDV4.test(ref) ? ref : null
 
-  // 2) Auth (Login erzwingen – merkt sich ref im Cookie)
+  // 2) Auth (Login erzwingen)
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // Cookie schon hier lesen (für Lock)
+  const cookieRef = req.cookies.get('bn_ref')?.value ?? null
 
   if (!user) {
     const loginUrl = new URL('/login', url)
@@ -36,7 +46,9 @@ export async function GET(req: NextRequest, context: any) {
     )
 
     const res = NextResponse.redirect(loginUrl, 302)
-    if (refInfluencerId) {
+
+    // ✅ Last-Click-Lock: setze bn_ref nur, wenn noch nicht vorhanden
+    if (refInfluencerId && !cookieRef) {
       res.cookies.set('bn_ref', refInfluencerId, {
         maxAge: 60 * 60 * 24 * 30,
         path: '/',
@@ -45,13 +57,14 @@ export async function GET(req: NextRequest, context: any) {
     return res
   }
 
-  // 3) Offer prüfen (WICHTIG: tracking_url_base mitladen für communicationAds deeplink)
+  // 3) Offer prüfen
   const { data: offer, error: offerErr } = await supabase
     .from('offers')
     .select('id, affiliate_url, tracking_url_base, active')
     .eq('id', offerId)
     .eq('active', true)
     .maybeSingle()
+    .returns<OfferRow>()
 
   if (offerErr || !offer?.affiliate_url) {
     const loc = new URL(`/angebot/${offerId}?unavailable=1`, url)
@@ -64,9 +77,9 @@ export async function GET(req: NextRequest, context: any) {
       : NextResponse.redirect(loc, 302)
   }
 
-  // 4) Influencer bestimmen: Query → Cookie → Profil.partner_id
-  const refFromCookie = req.cookies.get('bn_ref')?.value ?? null
-  let influencerId: string | null = refInfluencerId ?? refFromCookie
+  // 4) Influencer bestimmen: Cookie → Query → Profil.partner_id
+  // ✅ Lock: wenn Cookie da ist, gewinnt Cookie (neuer ref klaut keinen Lead)
+  let influencerId: string | null = cookieRef ?? refInfluencerId
 
   if (!influencerId) {
     const { data: p } = await supabase
@@ -78,7 +91,7 @@ export async function GET(req: NextRequest, context: any) {
     influencerId = (p as any)?.partner_id ?? null
   }
 
-  // 4b) Sub-ID bestimmen: erst Influencer (partners -> user_id -> profiles.partner_subid), sonst User
+  // 4b) Sub-ID bestimmen
   let partnerSubId: string | null = null
 
   if (influencerId) {
@@ -111,7 +124,7 @@ export async function GET(req: NextRequest, context: any) {
     partnerSubId = (me as any)?.partner_subid ?? null
   }
 
-  // 5) Idempotenter Click (bei Duplicate → Update solange nicht redeemed)
+  // 5) Idempotenter Click
   const nowIso = new Date().toISOString()
 
   const row: Record<string, any> = {
@@ -145,7 +158,7 @@ export async function GET(req: NextRequest, context: any) {
     }
   }
 
-  // 6) Neuesten Click holen → subid_token kommt aus Generated Column
+  // 6) Neuesten Click holen
   const { data: latest } = await supabase
     .from('clicks')
     .select(
@@ -159,15 +172,15 @@ export async function GET(req: NextRequest, context: any) {
 
   const clickToken: string | null = (latest as any)?.subid_token ?? null
 
-  // 7) Ziel-URL bauen (WICHTIG: communicationAds braucht targetUrl als deeplink)
+  // 7) Ziel-URL bauen
   const dest =
     buildAffiliateUrl(offer.affiliate_url, {
       userId: user.id,
       offerId,
       influencerId,
-      subId: partnerSubId || undefined,
-      clickToken: clickToken || undefined,
-      targetUrl: (offer as any).tracking_url_base || undefined,
+      subId: partnerSubId || null,
+      clickToken: clickToken || null,
+      targetUrl: offer.tracking_url_base || null,
     }) || '/'
 
   if (dbg) {
@@ -182,13 +195,15 @@ export async function GET(req: NextRequest, context: any) {
       err,
       row: latest ?? null,
       dest,
-      tracking_url_base: (offer as any).tracking_url_base ?? null,
+      tracking_url_base: offer.tracking_url_base ?? null,
+      cookieRef,
+      refInfluencerId,
     })
   }
 
-  // 8) Redirect + Ref-Cookie mitschreiben
+  // 8) Redirect + Cookie nur setzen, wenn leer
   const res = NextResponse.redirect(dest, 302)
-  if (refInfluencerId) {
+  if (refInfluencerId && !cookieRef) {
     res.cookies.set('bn_ref', refInfluencerId, {
       maxAge: 60 * 60 * 24 * 30,
       path: '/',

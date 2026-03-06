@@ -9,6 +9,9 @@ import GoToOfferButton from './GoToOfferButton'
 
 export const dynamic = 'force-dynamic'
 
+const UUIDV4 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export default async function OfferPage(props: any) {
   const p =
     props?.params && typeof props.params.then === 'function'
@@ -22,9 +25,21 @@ export default async function OfferPage(props: any) {
       : props?.searchParams
 
   // ref kommt aus URL: /angebot/<id>?ref=<partners.id>
-  const refId = (sp?.ref as string | undefined) ?? null
+  const refRaw = (sp?.ref as string | undefined) ?? null
+  const refId = refRaw && UUIDV4.test(refRaw) ? refRaw : null
 
   if (!id) return <div className="max-w-3xl mx-auto p-6">Ungültige URL.</div>
+
+  // ✅ Ref-Persistence + Last-Click-Lock:
+  // Setze bn_ref nur, wenn noch nicht vorhanden (überschreibt keinen bestehenden Influencer).
+  const cookieStore = cookies()
+  const existing = cookieStore.get('bn_ref')?.value ?? null
+  if (refId && !existing) {
+    cookieStore.set('bn_ref', refId, {
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+    })
+  }
 
   const supabase = createServerComponentClient({ cookies })
 
@@ -82,11 +97,11 @@ export default async function OfferPage(props: any) {
           Prämie:&nbsp;{fmt(offer.reward_amount ?? 0)}
         </span>
 
-        {/* ✅ Wichtig: ref aus /angebot/... wird an /r weitergereicht */}
+        {/* ref aus /angebot/... wird an /r weitergereicht (falls vorhanden).
+            Attribution bleibt aber auch ohne ref stabil, weil bn_ref Cookie gesetzt ist. */}
         <GoToOfferButton offerId={offer.id} refId={refId} />
       </div>
 
-      {/* Pflicht-Hinweise */}
       <div className="mt-4 rounded-xl border bg-white p-4 text-xs text-gray-600 space-y-2">
         <p>
           <strong>Hinweis:</strong> Der Button öffnet einen{' '}

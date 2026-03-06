@@ -24,5 +24,5 @@ export default async function PartnerOfferPage({ params }: Props) {
   // KEIN cookies().set hier!
   // Weiterleitung auf Angebot + ref.
   // Tracking passiert weiterhin erst beim Klick auf "Jetzt Angebot sichern" -> /r/[offerId]
-  redirect(`/angebot/${offerId}?ref=${partnerId}`)
+redirect(`/angebot/${encodeURIComponent(offerId)}?ref=${encodeURIComponent(partnerId)}`)
 }
