@@ -72,6 +72,14 @@ type NewUsersStats = {
   today: number
   yesterday: number
   last_7_days: number
+  total: number
+}
+
+const EMPTY_NEW_USERS: NewUsersStats = {
+  today: 0,
+  yesterday: 0,
+  last_7_days: 0,
+  total: 0,
 }
 
 const fmtEUR = (n: number) => `${Number(n || 0).toFixed(2)} €`
@@ -91,6 +99,21 @@ function addDays(d: Date, days: number) {
 
 function round2(n: number) {
   return Math.round(n * 100) / 100
+}
+
+function normalizeNewUsersRow(input: any): NewUsersStats {
+  const row = Array.isArray(input) ? input[0] : input
+
+  if (!row || typeof row !== 'object') {
+    return EMPTY_NEW_USERS
+  }
+
+  return {
+    today: Number(row.today ?? 0),
+    yesterday: Number(row.yesterday ?? 0),
+    last_7_days: Number(row.last_7_days ?? 0),
+    total: Number(row.total ?? 0),
+  }
 }
 
 export default function PartnerDashboardClient() {
@@ -119,7 +142,7 @@ export default function PartnerDashboardClient() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
-  const [newUsers, setNewUsers] = useState<NewUsersStats | null>(null)
+  const [newUsers, setNewUsers] = useState<NewUsersStats>(EMPTY_NEW_USERS)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -265,6 +288,7 @@ export default function PartnerDashboardClient() {
 
       if (!uid) {
         setPartnerInfo(null)
+        setNewUsers(EMPTY_NEW_USERS)
         return
       }
 
@@ -383,10 +407,10 @@ export default function PartnerDashboardClient() {
         rpc<any[]>('get_partner_revenue_timeseries', tsParams),
         rpc<RedemptionRow[]>('get_user_redemptions'),
         partnerInfo?.id
-          ? rpc<NewUsersStats>('get_partner_new_users_stats', {
+          ? rpc<any>('get_partner_new_users_stats', {
               p_partner_id: partnerInfo.id,
             })
-          : Promise.resolve(null as NewUsersStats | null),
+          : Promise.resolve(null),
       ])
 
       setStats(statsData)
@@ -405,7 +429,7 @@ export default function PartnerDashboardClient() {
       )
 
       setRedemptions(redData ?? [])
-      setNewUsers(newUsersData ?? { today: 0, yesterday: 0, last_7_days: 0 })
+      setNewUsers(normalizeNewUsersRow(newUsersData))
 
       if (partnerInfo?.id) {
         await refreshClicks(
@@ -584,10 +608,11 @@ export default function PartnerDashboardClient() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-          <Kpi title="Heute" value={newUsers?.today ?? 0} />
-          <Kpi title="Gestern" value={newUsers?.yesterday ?? 0} />
-          <Kpi title="Letzte 7 Tage" value={newUsers?.last_7_days ?? 0} />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+          <Kpi title="Heute" value={newUsers.today} />
+          <Kpi title="Gestern" value={newUsers.yesterday} />
+          <Kpi title="Letzte 7 Tage" value={newUsers.last_7_days} />
+          <Kpi title="Gesamt" value={newUsers.total} />
         </div>
       </div>
 
